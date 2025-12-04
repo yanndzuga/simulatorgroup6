@@ -11,6 +11,8 @@ public interface ISimulationEngine {
     double getCurrentSimulationTime();
 
     // --- Vehicles (for member 2 & 4 & 5) ---
+    void removeVehicle(String id) ;
+    void setVehicleSpeed(String id, double speed);
     List<String> getVehicleIdList();
     Point2D getVehiclePosition(String vehicleId);
     double getVehicleSpeed(String vehicleId);

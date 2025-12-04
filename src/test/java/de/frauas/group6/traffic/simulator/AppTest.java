@@ -1,4 +1,4 @@
-package de.frauas.groupy.traffic.simulator;
+package de.frauas.group6.traffic.simulator;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
