@@ -38,14 +38,15 @@ public interface ISimulationEngine {
     // --- edge  ---
     List<String> getEdgeIdList();
     List<Point2D> getEdgeShape(String edgeId);
-    int getEdgeVehicleCount(String edgeId
+    int getEdgeVehicleCount(String edgeId)
     List<String> getLaneList(String edgeId);
     double getEdgeLength(String edgeId);
     
     // --- engine control ---
-    void start ();
+    void start();
     void stop();
-    void nextStep();
+    void step();
     void pause();
     void resume();
+    boolean isPaused();
 }
