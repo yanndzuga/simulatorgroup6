@@ -19,7 +19,7 @@ public interface ISimulationEngine {
     int[] getVehicleColor(String vehicleId);
    
     
-    void spawnVehicle(String id, String laneId, String typeId, int r, int g, int b, double speedInMps);
+    void spawnVehicle(String id, String routeId, String typeId, int r, int g, int b, double speedInMps);
     void setVehicleColor(String id, int r, int g, int b);
     void setVehicleSpeed(String id, double speed);
     void removeVehicle(String id);
@@ -32,23 +32,21 @@ public interface ISimulationEngine {
     List<String> getControlledLanes(String tlId);
     int getLaneWaitingVehicleCount(String laneId);
     
-    
     void setTrafficLightPhase(String tlId, int phaseIndex);
     void setTrafficLightDuration(String tlId, int durationSeconds);
 
     // --- edge  ---
     List<String> getEdgeIdList();
     List<Point2D> getEdgeShape(String edgeId);
-    List<String> getLaneList(String edgeId);
     int getEdgeVehicleCount(String edgeId);
+    List<String> getLaneList(String edgeId);
     double getEdgeLength(String edgeId);
     
     // --- engine control ---
-    void start ();
+    void start();
     void stop();
     void step();
     void pause();
     void resume();
     boolean isPaused();
-    
 }

@@ -122,7 +122,7 @@ public class SimulationEngine implements ISimulationEngine {
     }
 
     @Override
-    public void step() {
+    public void step(){
         // Allows advancing one step even if paused ("Step-by-step" mode)
         doStepLogic();
     }

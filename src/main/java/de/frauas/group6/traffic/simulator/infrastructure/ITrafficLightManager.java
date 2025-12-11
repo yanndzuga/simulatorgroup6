@@ -5,7 +5,8 @@ import java.util.List;
 public interface ITrafficLightManager {
 	
 
-void switchToPhase(String edgeId, int phase,int time);
+	
+	void switchToPhase(String edgeId, int phase,int time);
 	
 	List<String> getJunctionIds();
 	
