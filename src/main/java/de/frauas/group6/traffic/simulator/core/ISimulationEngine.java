@@ -11,20 +11,27 @@ public interface ISimulationEngine {
     double getCurrentSimulationTime();
 
     // --- Vehicles (for member 2 & 4 & 5) ---
-    void removeVehicle(String id) ;
-    void setVehicleSpeed(String id, double speed);
     List<String> getVehicleIdList();
     Point2D getVehiclePosition(String vehicleId);
     double getVehicleSpeed(String vehicleId);
     String getVehicleRoadId(String vehicleId);
+    String getVehicleLaneId(String vehicleId);
+    int[] getVehicleColor(String vehicleId);
+   
     
-    void spawnVehicle(String id, String routeId, String typeId);
+    void spawnVehicle(String id, String laneId, String typeId, int r, int g, int b, double speedInMps);
     void setVehicleColor(String id, int r, int g, int b);
+    void setVehicleSpeed(String id, double speed);
+    void removeVehicle(String id);
 
     // --- Trafficlight (member 3) ---
     List<String> getTrafficLightIdList();
     int getTrafficLightPhase(String tlId);
     long getTrafficLightRemainingTime(String tlId);
+    String getTrafficLightState(String tlId);
+    List<String> getControlledLanes(String tlId);
+    int getLaneWaitingVehicleCount(String laneId);
+    
     
     void setTrafficLightPhase(String tlId, int phaseIndex);
     void setTrafficLightDuration(String tlId, int durationSeconds);
@@ -32,10 +39,16 @@ public interface ISimulationEngine {
     // --- edge  ---
     List<String> getEdgeIdList();
     List<Point2D> getEdgeShape(String edgeId);
+    List<String> getLaneList(String edgeId);
     int getEdgeVehicleCount(String edgeId);
     double getEdgeLength(String edgeId);
     
     // --- engine control ---
     void start ();
     void stop();
+    void step();
+    void pause();
+    void resume();
+    boolean isPaused();
+    
 }

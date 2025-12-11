@@ -1,20 +1,19 @@
 package de.frauas.group6.traffic.simulator.core;
 
-
-import de.tudresden.sumo.cmd.Edge; 
-import de.tudresden.sumo.cmd.Lane; 
+import de.tudresden.sumo.cmd.Edge;
+import de.tudresden.sumo.cmd.Lane;
 import de.tudresden.sumo.cmd.Vehicle;
 import de.tudresden.sumo.cmd.Trafficlight;
 import de.tudresden.sumo.cmd.Simulation;
 import de.tudresden.sumo.objects.SumoColor;
 import de.tudresden.sumo.objects.SumoGeometry;
 import de.tudresden.sumo.objects.SumoPosition2D;
+import de.tudresden.sumo.objects.SumoStringList;
 import it.polito.appeal.traci.SumoTraciConnection;
 
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
 import de.frauas.group6.traffic.simulator.view.IMapObserver;
-
 
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
@@ -24,7 +23,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * CORE MODULE - MEMBER 1
+ * CORE MODULE - IMPLEMENTATION
+ * Handles raw communication with TraaS (SUMO) and synchronizes threads.
  */
 public class SimulationEngine implements ISimulationEngine {
 
@@ -32,51 +32,48 @@ public class SimulationEngine implements ISimulationEngine {
 
     private SumoTraciConnection connection;
     
+    // Lock object for thread safety (Critical for GUI + SimThread interaction)
+    private final Object traciLock = new Object();
+
     // Dependencies
     private IVehicleManager vehicleManager;
     private ITrafficLightManager trafficLightManager;
     private IMapObserver mapObserver;
 
     private volatile boolean isRunning = false;
+    private volatile boolean isPaused = false; // Flag for pause state
+    
     private Thread simulationThread;
     
-    private final int SIMULATION_STEP_SIZE = 1000; 
-    private  String sumoBin ; 
+    private final int SIMULATION_STEP_SIZE = 1000; // ms target loop time
     private final String configFile = "src/main/resources/meine_sim.sumocfg"; 
-    private String sumoHome ;
-    
-    
-    
-    
-   
-    
-    
+    private String sumoBin; 
+
     public SimulationEngine() {
-    	sumoHome = System.getenv("SUMO_HOME");
-    	if (sumoHome == null)
-    	{throw new RuntimeException("the environment Variable was not definied");}
-    	
-    sumoBin = sumoHome + "/bin/sumo-gui";
-    if (System.getProperty("os.name").toLowerCase().contains("win"))
-    sumoBin += ".exe";
-    	
+        String sumoHome = System.getenv("SUMO_HOME");
+        if (sumoHome == null) {
+            throw new RuntimeException("ERROR: SUMO_HOME environment variable is not set.");
+        }
+
+        sumoBin = sumoHome + "/bin/sumo-gui";
+        if (System.getProperty("os.name").toLowerCase().contains("win")) {
+            sumoBin += ".exe";
+        }
+
         this.connection = new SumoTraciConnection(sumoBin, configFile);
     }
 
     // =================================================================================
-    // LIFECYCLE METHODS (From ISimulationController)
+    // LIFECYCLE
     // =================================================================================
 
-   
     public void initialize() {
         try {
             LOGGER.info("Initializing SUMO connection...");
-            connection.printSumoError(true); 
-            connection.printSumoOutput(true);
+            connection.addOption("start", "true"); 
             connection.runServer();
             LOGGER.info("SUMO Connected.");
         } catch (Exception e) {
-            // Improved logging: Pass the exception object 'e' to preserve stack trace
             LOGGER.log(Level.SEVERE, "CRITICAL: Could not connect to SUMO.", e);
             throw new RuntimeException(e);
         }
@@ -86,6 +83,7 @@ public class SimulationEngine implements ISimulationEngine {
     public void start() {
         if (isRunning) return;
         isRunning = true;
+        isPaused = false;
         simulationThread = new Thread(this::runGameLoop, "Sim-Thread");
         simulationThread.start();
         LOGGER.info("Simulation started.");
@@ -94,210 +92,374 @@ public class SimulationEngine implements ISimulationEngine {
     @Override
     public void stop() {
         isRunning = false;
-        if (connection != null && !connection.isClosed()) {
-            connection.close();
-            LOGGER.info("Simulation stopped.");
+        try {
+            if (connection != null && !connection.isClosed()) {
+                synchronized (traciLock) {
+                    connection.close();
+                }
+                LOGGER.info("Simulation stopped.");
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error closing connection", e);
         }
+    }
+
+    @Override
+    public void pause() {
+        isPaused = true;
+        LOGGER.info("Simulation paused.");
+    }
+
+    @Override
+    public void resume() {
+        isPaused = false;
+        LOGGER.info("Simulation resumed.");
+    }
+
+    @Override
+    public boolean isPaused() {
+        return isPaused;
+    }
+
+    @Override
+    public void step() {
+        // Allows advancing one step even if paused ("Step-by-step" mode)
+        doStepLogic();
     }
 
     private void runGameLoop() {
         while (isRunning) {
+            // --- PAUSE HANDLING ---
+            if (isPaused) {
+                try {
+                    // Sleep briefly to prevent CPU overload
+                    Thread.sleep(100); 
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                // Continue to next loop iteration without performing calculations
+                continue; 
+            }
+            // ---------------------------
+
             long startTime = System.currentTimeMillis();
-            try {
-                connection.do_timestep();
+            
+            doStepLogic();
 
-                if (vehicleManager != null) vehicleManager.updateVehicles(); 
-                if (trafficLightManager != null) trafficLightManager.updateTrafficLights();
-                if (mapObserver != null) mapObserver.refresh();
+            long executionTime = System.currentTimeMillis() - startTime;
+            long sleepTime = SIMULATION_STEP_SIZE - executionTime;
 
-                long sleepTime = SIMULATION_STEP_SIZE - (System.currentTimeMillis() - startTime);
-                if (sleepTime > 0) Thread.sleep(sleepTime);
-
-            } catch (Exception e) {
-                // Improved logging: Pass the exception object 'e'
-                LOGGER.log(Level.SEVERE, "Error in simulation loop", e);
+            if (sleepTime > 0) {
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
         }
     }
 
+    /**
+     * Central logic for a single time step.
+     * Synchronized to prevent the View from reading while SUMO is writing.
+     */
+    private void doStepLogic() {
+        try {
+            synchronized (traciLock) {
+                if (connection.isClosed()) return;
+                connection.do_timestep();
+            }
+
+            // Notify managers (Callbacks)
+            if (vehicleManager != null) vehicleManager.updateVehicles(); 
+            if (trafficLightManager != null) trafficLightManager.updateTrafficLights();
+            
+            // Notify the view (refresh)
+            if (mapObserver != null) mapObserver.refresh();
+
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "Error in simulation step", e);
+            stop(); 
+        }
+    }
+
     // =================================================================================
-    // READER METHODS 
+    // READER METHODS (Thread Safe)
     // =================================================================================
 
     @Override
     public double getCurrentSimulationTime() {
-        try {
-            return (double) connection.do_job_get(Simulation.getTime());
-        } catch (Exception e) { return 0.0; }
+        synchronized (traciLock) {
+            try {
+                return (double) connection.do_job_get(Simulation.getTime());
+            } catch (Exception e) { return 0.0; }
+        }
     }
 
     // --- VEHICLES ---
 
     @SuppressWarnings("unchecked")
-	@Override
+    @Override
     public List<String> getVehicleIdList() {
-        try {
-            return (List<String>) connection.do_job_get(Vehicle.getIDList());
-        } catch (Exception e) { return Collections.emptyList(); }
+        synchronized (traciLock) {
+            try {
+                return (List<String>) connection.do_job_get(Vehicle.getIDList());
+            } catch (Exception e) { return Collections.emptyList(); }
+        }
     }
 
     @Override
     public Point2D getVehiclePosition(String vehicleId) {
-        try {
-            SumoPosition2D pos = (SumoPosition2D) connection.do_job_get(Vehicle.getPosition(vehicleId));
-            return new Point2D.Double(pos.x, pos.y);
-        } catch (Exception e) { return new Point2D.Double(0, 0); }
+        synchronized (traciLock) {
+            try {
+                SumoPosition2D pos = (SumoPosition2D) connection.do_job_get(Vehicle.getPosition(vehicleId));
+                return new Point2D.Double(pos.x, pos.y);
+            } catch (Exception e) { return new Point2D.Double(0, 0); }
+        }
     }
 
     @Override
     public double getVehicleSpeed(String vehicleId) {
-        try {
-            return (double) connection.do_job_get(Vehicle.getSpeed(vehicleId));
-        } catch (Exception e) { return 0.0; }
+        synchronized (traciLock) {
+            try {
+                return (double) connection.do_job_get(Vehicle.getSpeed(vehicleId));
+            } catch (Exception e) { return 0.0; }
+        }
     }
 
     @Override
     public String getVehicleRoadId(String vehicleId) {
-        try {
-            return (String) connection.do_job_get(Vehicle.getRoadID(vehicleId));
-        } catch (Exception e) { return ""; }
+        synchronized (traciLock) {
+            try {
+                return (String) connection.do_job_get(Vehicle.getRoadID(vehicleId));
+            } catch (Exception e) { return ""; }
+        }
+    }
+    
+    @Override
+    public String getVehicleLaneId(String vehicleId) {
+        synchronized (traciLock) {
+            try {
+                return (String) connection.do_job_get(Vehicle.getLaneID(vehicleId));
+            } catch (Exception e) { return ""; }
+        }
     }
 
-    // --- TrafficLight ---
+    @Override
+    public int[] getVehicleColor(String vehicleId) {
+        synchronized (traciLock) {
+            try {
+                SumoColor c = (SumoColor) connection.do_job_get(Vehicle.getColor(vehicleId));
+                return new int[]{c.r, c.g, c.b, c.a};
+            } catch (Exception e) { return new int[]{255, 255, 255, 255}; }
+        }
+    }
+
+    // --- TRAFFIC LIGHTS ---
 
     @SuppressWarnings("unchecked")
-	@Override
+    @Override
     public List<String> getTrafficLightIdList() {
-        try {
-            return (List<String>) connection.do_job_get(Trafficlight.getIDList());
-        } catch (Exception e) { return Collections.emptyList(); }
+        synchronized (traciLock) {
+            try {
+                return (List<String>) connection.do_job_get(Trafficlight.getIDList());
+            } catch (Exception e) { return Collections.emptyList(); }
+        }
     }
 
     @Override
     public int getTrafficLightPhase(String tlId) {
-        try {
-            return (int) connection.do_job_get(Trafficlight.getPhase(tlId));
-        } catch (Exception e) { return -1; }
+        synchronized (traciLock) {
+            try {
+                return (int) connection.do_job_get(Trafficlight.getPhase(tlId));
+            } catch (Exception e) { return -1; }
+        }
     }
 
     @Override
     public long getTrafficLightRemainingTime(String tlId) {
-        try {
-            double nextSwitch = (double) connection.do_job_get(Trafficlight.getNextSwitch(tlId));
-            double current = (double) connection.do_job_get(Simulation.getTime());
-            return (long) (nextSwitch - current); 
-        } catch (Exception e) { return 0; }
+        synchronized (traciLock) {
+            try {
+                double nextSwitch = (double) connection.do_job_get(Trafficlight.getNextSwitch(tlId));
+                double current = (double) connection.do_job_get(Simulation.getTime());
+                return (long) (nextSwitch - current); 
+            } catch (Exception e) { return 0; }
+        }
+    }
+    
+    @Override
+    public String getTrafficLightState(String tlId) {
+        synchronized (traciLock) {
+            try {
+                return (String) connection.do_job_get(Trafficlight.getRedYellowGreenState(tlId));
+            } catch (Exception e) { return ""; }
+        }
     }
 
-    // --- ROUTES ---
+    @Override
+    public List<String> getControlledLanes(String tlId) {
+        synchronized (traciLock) {
+            try {
+                SumoStringList list = (SumoStringList) connection.do_job_get(Trafficlight.getControlledLanes(tlId));
+                return list; 
+            } catch (Exception e) { return Collections.emptyList(); }
+        }
+    }
+    
+    @Override
+    public int getLaneWaitingVehicleCount(String laneId) {
+        synchronized (traciLock) {
+            try {
+                return (int) connection.do_job_get(Lane.getLastStepHaltingNumber(laneId));
+            } catch (Exception e) { return 0; }
+        }
+    }
+
+    // --- ROUTES / EDGES ---
 
     @SuppressWarnings("unchecked")
-	@Override
+    @Override
     public List<String> getEdgeIdList() {
-        try {
-            return (List<String>) connection.do_job_get(Edge.getIDList());
-        } catch (Exception e) { return Collections.emptyList(); }
+        synchronized (traciLock) {
+            try {
+                return (List<String>) connection.do_job_get(Edge.getIDList());
+            } catch (Exception e) { return Collections.emptyList(); }
+        }
     }
 
     @Override
     public List<Point2D> getEdgeShape(String edgeId) {
-        try {
-            String laneId = edgeId + "_0";
-            SumoGeometry geometry = (SumoGeometry) connection.do_job_get(Lane.getShape(laneId));
-            List<Point2D> points = new ArrayList<>();
-            for (SumoPosition2D pos : geometry.coords) {
-                points.add(new Point2D.Double(pos.x, pos.y));
-            }
-            return points;
-        } catch (Exception e) { return Collections.emptyList(); }
+        synchronized (traciLock) {
+            try {
+                String laneId = edgeId + "_0";
+                SumoGeometry geometry = (SumoGeometry) connection.do_job_get(Lane.getShape(laneId));
+                List<Point2D> points = new ArrayList<>();
+                for (SumoPosition2D pos : geometry.coords) {
+                    points.add(new Point2D.Double(pos.x, pos.y));
+                }
+                return points;
+            } catch (Exception e) { return Collections.emptyList(); }
+        }
     }
 
     @Override
     public int getEdgeVehicleCount(String edgeId) {
-        try {
-            return (int) connection.do_job_get(Edge.getLastStepVehicleNumber(edgeId));
-        } catch (Exception e) { return 0; }
+        synchronized (traciLock) {
+            try {
+                return (int) connection.do_job_get(Edge.getLastStepVehicleNumber(edgeId));
+            } catch (Exception e) { return 0; }
+        }
     }
 
     @Override
     public double getEdgeLength(String edgeId) {
-        try {
-            String laneId = edgeId + "_0";
-            return (double) connection.do_job_get(Lane.getLength(laneId));
-        } catch (Exception e) { return 100.0; }
+        synchronized (traciLock) {
+            try {
+                String laneId = edgeId + "_0";
+                return (double) connection.do_job_get(Lane.getLength(laneId));
+            } catch (Exception e) { return 0.0; }
+        }
+    }
+    
+    @Override
+    public List<String> getLaneList(String edgeId) {
+        synchronized (traciLock) {
+            try {
+                int numLanes = (int) connection.do_job_get(Edge.getLaneNumber(edgeId));
+                List<String> lanes = new ArrayList<>();
+                for(int i=0; i<numLanes; i++) {
+                    lanes.add(edgeId + "_" + i);
+                }
+                return lanes;
+            } catch (Exception e) { return Collections.emptyList(); }
+        }
     }
 
     // =================================================================================
-    // CONTROLLER METHODS 
+    // WRITER METHODS
     // =================================================================================
 
-   
     @Override
     public void setVehicleSpeed(String id, double speed) {
-                    try {
+        synchronized (traciLock) {
+            try {
                 connection.do_job_set(Vehicle.setSpeed(id, speed));
-                LOGGER.info("Set speed for " + id + " to " + speed);
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to set speed for: " + id, e);
             }
-        
+        }
     }
-    
     
     @Override
     public void removeVehicle(String id) {
+        synchronized (traciLock) {
             try {
-                // byte 1 = REMOVE_REASON_TELEPORT (standard removal)
-                connection.do_job_set(Vehicle.remove(id, (byte) 1));
-                LOGGER.info("Removed vehicle: " + id);
+                connection.do_job_set(Vehicle.remove(id, (byte) 2)); 
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Failed to remove vehicle: " + id, e);
             }
-        
+        }
     }
     
-    
     @Override
-    public void spawnVehicle(String id, String routeId, String typeId) {
-        try {
-            connection.do_job_set(Vehicle.add(id, routeId, typeId, -2, 0.0, 0.0, (byte) -2));
-            LOGGER.info("Spawned vehicle: " + id);
-        } catch (Exception e) {
-            // Improved logging: Include exception for debugging
-            LOGGER.log(Level.SEVERE, "Failed to spawn vehicle: " + id, e);
+    public void spawnVehicle(String id, String routeId, String typeId, int r, int g, int b, double speedInMps) {
+        synchronized (traciLock) {
+            try {
+                // Use speedInMps as departSpeed (6th argument)
+                // -2 = NOW (Time)
+                // 0.0 = POS (Start of lane)
+                // speedInMps = Depart Speed
+                // -2 = First Allowed Lane
+                connection.do_job_set(Vehicle.add(id, routeId, typeId, -2, 0.0, speedInMps, (byte) -2));
+                
+                // Apply color immediately
+                SumoColor c = new SumoColor(r, g, b, 255);
+                connection.do_job_set(Vehicle.setColor(id, c));
+                
+                LOGGER.info("Spawned vehicle: " + id + " with speed " + speedInMps + " m/s and color RGB(" + r + "," + g + "," + b + ")");
+            } catch (Exception e) {
+                LOGGER.log(Level.SEVERE, "Failed to spawn vehicle: " + id, e);
+            }
         }
     }
 
     @Override
     public void setVehicleColor(String id, int r, int g, int b) {
-        try {
-            SumoColor c = new SumoColor(r, g, b, 255);
-            connection.do_job_set(Vehicle.setColor(id, c));
-        } catch (Exception e) {
-            // Improved logging: Include exception as warning
-            LOGGER.log(Level.WARNING, "Failed to color vehicle: " + id, e);
+        synchronized (traciLock) {
+            try {
+                SumoColor c = new SumoColor(r, g, b, 255);
+                connection.do_job_set(Vehicle.setColor(id, c));
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Failed to color vehicle: " + id, e);
+            }
         }
     }
 
     @Override
     public void setTrafficLightPhase(String tlId, int phaseIndex) {
-        try {
-            connection.do_job_set(Trafficlight.setPhase(tlId, phaseIndex));
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to switch phase for " + tlId, e);
+        synchronized (traciLock) {
+            try {
+                connection.do_job_set(Trafficlight.setPhase(tlId, phaseIndex));
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Failed to switch phase for " + tlId, e);
+            }
         }
     }
 
     @Override
     public void setTrafficLightDuration(String tlId, int durationSeconds) {
-        try {
-            connection.do_job_set(Trafficlight.setPhaseDuration(tlId, durationSeconds * 1000));
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to set duration for " + tlId, e);
+        synchronized (traciLock) {
+            try {
+                connection.do_job_set(Trafficlight.setPhaseDuration(tlId, durationSeconds * 1000));
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Failed to set duration for " + tlId, e);
+            }
         }
     }
 
-    // --- DEPENDENCY INJECTION (Not in interface, used by Main) ---
+    // --- DEPENDENCY INJECTION ---
 
     public void setVehicleManager(IVehicleManager vm) { this.vehicleManager = vm; }
     public void setTrafficLightManager(ITrafficLightManager tlm) { this.trafficLightManager = tlm; }
