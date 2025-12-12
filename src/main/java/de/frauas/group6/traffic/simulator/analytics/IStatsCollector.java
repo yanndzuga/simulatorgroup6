@@ -15,8 +15,6 @@ public interface IStatsCollector {
 	void exportToCsv(String filepath);
 	
 	void exportTopdf(String filepath);
-
-	void collectData();
 	
 	double getAverageSpeed();
 }
