@@ -447,6 +447,16 @@ public class SimulationEngine implements ISimulationEngine {
             } catch (Exception e) { return Collections.emptyList(); }
         }
     }
+    
+    
+    
+    public byte getVehicleLaneIndex(String vehicleId) {
+        synchronized (traciLock) {
+            try {
+                return (byte) connection.do_job_get(Vehicle.getLaneIndex(vehicleId));
+            } catch (Exception e) { return -1; }
+        }
+    }
 
     // =================================================================================
     // WRITER METHODS
