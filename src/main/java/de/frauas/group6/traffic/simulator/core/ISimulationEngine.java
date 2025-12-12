@@ -17,9 +17,10 @@ public interface ISimulationEngine {
     String getVehicleRoadId(String vehicleId);
     String getVehicleLaneId(String vehicleId);
     int[] getVehicleColor(String vehicleId);
+    String getVehicleIdAtPosition(double x, double y, double radius);
    
     
-    void spawnVehicle(String id, String routeId, String typeId, int r, int g, int b, double speedInMps);
+    void spawnVehicle(String id, String routeId,byte edgeLane, String typeId, int r, int g, int b, double speedInMps);
     void setVehicleColor(String id, int r, int g, int b);
     void setVehicleSpeed(String id, double speed);
     void removeVehicle(String id);

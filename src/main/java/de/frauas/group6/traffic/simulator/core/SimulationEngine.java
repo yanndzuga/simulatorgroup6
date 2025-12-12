@@ -257,6 +257,37 @@ public class SimulationEngine implements ISimulationEngine {
             } catch (Exception e) { return new int[]{255, 255, 255, 255}; }
         }
     }
+    
+    
+    
+    public String getVehicleIdAtPosition(double x, double y, double radius) {
+        synchronized (traciLock) {
+            try {
+                // 1. Récupérer tous les IDs
+                List<String> ids = (List<String>) connection.do_job_get(Vehicle.getIDList());
+                
+                String closestId = null;
+                double closestDistance = Double.MAX_VALUE;
+
+                // 2. Parcourir pour trouver le plus proche
+                for (String id : ids) {
+                    SumoPosition2D pos = (SumoPosition2D) connection.do_job_get(Vehicle.getPosition(id));
+                    
+                    // Calcul distance euclidienne
+                    double dist = Math.sqrt(Math.pow(pos.x - x, 2) + Math.pow(pos.y - y, 2));
+                    
+                    if (dist <= radius && dist < closestDistance) {
+                        closestDistance = dist;
+                        closestId = id;
+                    }
+                }
+                return closestId;
+            } catch (Exception e) {
+                LOGGER.warning("Error finding vehicle at position: " + e.getMessage());
+                return null;
+            }
+        }
+    }
 
     // --- TRAFFIC LIGHTS ---
 
@@ -444,7 +475,7 @@ public class SimulationEngine implements ISimulationEngine {
     }
     
     @Override
-    public void spawnVehicle(String id, String routeId, String typeId, int r, int g, int b, double speedInMps) {
+    public void spawnVehicle(String id, String routeId,byte edgeLane, String typeId, int r, int g, int b, double speedInMps) {
         synchronized (traciLock) {
             try {
                 // Use speedInMps as departSpeed (6th argument)
@@ -452,7 +483,7 @@ public class SimulationEngine implements ISimulationEngine {
                 // 0.0 = POS (Start of lane)
                 // speedInMps = Depart Speed
                 // -2 = First Allowed Lane
-                connection.do_job_set(Vehicle.add(id, routeId, typeId, -2, 0.0, speedInMps, (byte) -2));
+                connection.do_job_set(Vehicle.add(id, routeId, typeId, -2, 0.0, speedInMps, edgeLane));
                 
                 // Apply color immediately
                 SumoColor c = new SumoColor(r, g, b, 255);
