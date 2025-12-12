@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<types>
+    
+    <vType id="BUS_TYPE" 
+           vClass="bus" 
+           length="12.0" 
+           accel="2.0" 
+           maxSpeed="40.0" 
+           personCapacity="30"/>
+    
+    <vType id="RESCUE_TYPE" 
+           vClass="emergency" 
+           length="5.0" 
+           accel="3.5" 
+           maxSpeed="60.0">
+        <param key="has.bluelight.device" value="true"/>
+    </vType>
+    
+    </types>
