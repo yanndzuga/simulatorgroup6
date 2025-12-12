@@ -1,6 +1,7 @@
 package de.frauas.group6.traffic.simulator.core;
 
 import de.tudresden.sumo.cmd.Edge;
+import de.tudresden.sumo.cmd.Junction;
 import de.tudresden.sumo.cmd.Lane;
 import de.tudresden.sumo.cmd.Vehicle;
 import de.tudresden.sumo.cmd.Trafficlight;
@@ -314,6 +315,45 @@ public class SimulationEngine implements ISimulationEngine {
             try {
                 return (int) connection.do_job_get(Lane.getLastStepHaltingNumber(laneId));
             } catch (Exception e) { return 0; }
+        }
+    }
+    
+    
+    public Point2D getTrafficLightPosition(String tlId) {
+        synchronized (traciLock) {
+            try {
+                // Usually TL ID matches Junction ID in SUMO
+                SumoPosition2D pos = (SumoPosition2D) connection.do_job_get(Junction.getPosition(tlId));
+                return new Point2D.Double(pos.x, pos.y);
+            } catch (Exception e) {
+                // Log and return default if fails (e.g. TL is not a junction)
+                return new Point2D.Double(0, 0);
+            }
+        }
+    }
+    
+    
+    
+    @SuppressWarnings("unchecked")
+	public List<String> getJunctionIdList() {
+        synchronized (traciLock) {
+            try {
+                 // Cast is safe as SUMO usually returns a list of strings here
+                return (List<String>) connection.do_job_get(Junction.getIDList());
+            } catch (Exception e) { return Collections.emptyList(); }
+        }
+    }
+
+    public List<Point2D> getJunctionShape(String junctionId) {
+        synchronized (traciLock) {
+            try {
+                SumoGeometry geometry = (SumoGeometry) connection.do_job_get(Junction.getShape(junctionId));
+                List<Point2D> points = new ArrayList<>();
+                for (SumoPosition2D pos : geometry.coords) {
+                    points.add(new Point2D.Double(pos.x, pos.y));
+                }
+                return points;
+            } catch (Exception e) { return Collections.emptyList(); }
         }
     }
 

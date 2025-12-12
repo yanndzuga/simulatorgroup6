@@ -10,6 +10,10 @@ public interface ITrafficLightManager {
 	
 	List<String> getJunctionIds();
 	
+	List<String> getTrafficLightIdList();
+	
+	List<IEdge> getEdges();
+	
 	int  getRemainingTime();
 	
 	void setAutomaticControl(boolean enabled);

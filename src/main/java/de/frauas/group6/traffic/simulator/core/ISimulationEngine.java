@@ -31,6 +31,11 @@ public interface ISimulationEngine {
     String getTrafficLightState(String tlId);
     List<String> getControlledLanes(String tlId);
     int getLaneWaitingVehicleCount(String laneId);
+    Point2D getTrafficLightPosition(String tlId);
+    
+    // --- junction (member 3 && 4) ---
+    List<Point2D> getJunctionShape(String junctionId);
+    List<String> getJunctionIdList();
     
     void setTrafficLightPhase(String tlId, int phaseIndex);
     void setTrafficLightDuration(String tlId, int durationSeconds);
