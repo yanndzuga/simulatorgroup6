@@ -18,5 +18,6 @@ public interface IVehicle {
 	void setPosition(Point2D newpos);
 	void setEdgeId(String newEdgeId);
 	void setEdgeLane(byte newLane);
+	
 
 }
