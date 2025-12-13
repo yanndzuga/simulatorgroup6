@@ -14,6 +14,8 @@ import it.polito.appeal.traci.SumoTraciConnection;
 
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
+import de.frauas.group6.traffic.simulator.infrastructure.IEdge;
 import de.frauas.group6.traffic.simulator.view.IMapObserver;
 
 import java.awt.geom.Point2D;
@@ -32,21 +34,20 @@ public class SimulationEngine implements ISimulationEngine {
     private static final Logger LOGGER = Logger.getLogger(SimulationEngine.class.getName());
 
     private SumoTraciConnection connection;
-    
-    // Lock object for thread safety (Critical for GUI + SimThread interaction)
     private final Object traciLock = new Object();
 
     // Dependencies
     private IVehicleManager vehicleManager;
     private ITrafficLightManager trafficLightManager;
+    private IInfrastructureManager infrastructureManager; 
     private IMapObserver mapObserver;
 
     private volatile boolean isRunning = false;
-    private volatile boolean isPaused = false; // Flag for pause state
+    private volatile boolean isPaused = false;
     
     private Thread simulationThread;
     
-    private final int SIMULATION_STEP_SIZE = 1000; // ms target loop time
+    private final int SIMULATION_STEP_SIZE = 1000; 
     private final String configFile = "src/main/resources/meine_sim.sumocfg"; 
     private String sumoBin; 
 
@@ -124,30 +125,23 @@ public class SimulationEngine implements ISimulationEngine {
 
     @Override
     public void step(){
-        // Allows advancing one step even if paused ("Step-by-step" mode)
         doStepLogic();
     }
 
     private void runGameLoop() {
         while (isRunning) {
-            // --- PAUSE HANDLING ---
             if (isPaused) {
                 try {
-                    // Sleep briefly to prevent CPU overload
                     Thread.sleep(100); 
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 }
-                // Continue to next loop iteration without performing calculations
                 continue; 
             }
-            // ---------------------------
 
             long startTime = System.currentTimeMillis();
-            
             doStepLogic();
-
             long executionTime = System.currentTimeMillis() - startTime;
             long sleepTime = SIMULATION_STEP_SIZE - executionTime;
 
@@ -162,10 +156,6 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
-    /**
-     * Central logic for a single time step.
-     * Synchronized to prevent the View from reading while SUMO is writing.
-     */
     private void doStepLogic() {
         try {
             synchronized (traciLock) {
@@ -173,11 +163,8 @@ public class SimulationEngine implements ISimulationEngine {
                 connection.do_timestep();
             }
 
-            // Notify managers (Callbacks)
             if (vehicleManager != null) vehicleManager.updateVehicles(); 
             if (trafficLightManager != null) trafficLightManager.updateTrafficLights();
-            
-            // Notify the view (refresh)
             if (mapObserver != null) mapObserver.refresh();
 
         } catch (Exception e) {
@@ -187,7 +174,7 @@ public class SimulationEngine implements ISimulationEngine {
     }
 
     // =================================================================================
-    // READER METHODS (Thread Safe)
+    // READERS
     // =================================================================================
 
     @Override
@@ -198,8 +185,6 @@ public class SimulationEngine implements ISimulationEngine {
             } catch (Exception e) { return 0.0; }
         }
     }
-
-    // --- VEHICLES ---
 
     @SuppressWarnings("unchecked")
     @Override
@@ -258,38 +243,24 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
     
-    
-    
     public String getVehicleIdAtPosition(double x, double y, double radius) {
         synchronized (traciLock) {
             try {
-                // 1. Récupérer tous les IDs
                 List<String> ids = (List<String>) connection.do_job_get(Vehicle.getIDList());
-                
                 String closestId = null;
                 double closestDistance = Double.MAX_VALUE;
-
-                // 2. Parcourir pour trouver le plus proche
                 for (String id : ids) {
                     SumoPosition2D pos = (SumoPosition2D) connection.do_job_get(Vehicle.getPosition(id));
-                    
-                    // Calcul distance euclidienne
                     double dist = Math.sqrt(Math.pow(pos.x - x, 2) + Math.pow(pos.y - y, 2));
-                    
                     if (dist <= radius && dist < closestDistance) {
                         closestDistance = dist;
                         closestId = id;
                     }
                 }
                 return closestId;
-            } catch (Exception e) {
-                LOGGER.warning("Error finding vehicle at position: " + e.getMessage());
-                return null;
-            }
+            } catch (Exception e) { return null; }
         }
     }
-
-    // --- TRAFFIC LIGHTS ---
 
     @SuppressWarnings("unchecked")
     @Override
@@ -349,27 +320,19 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
     
-    
     public Point2D getTrafficLightPosition(String tlId) {
         synchronized (traciLock) {
             try {
-                // Usually TL ID matches Junction ID in SUMO
                 SumoPosition2D pos = (SumoPosition2D) connection.do_job_get(Junction.getPosition(tlId));
                 return new Point2D.Double(pos.x, pos.y);
-            } catch (Exception e) {
-                // Log and return default if fails (e.g. TL is not a junction)
-                return new Point2D.Double(0, 0);
-            }
+            } catch (Exception e) { return new Point2D.Double(0, 0); }
         }
     }
     
-    
-    
     @SuppressWarnings("unchecked")
-	public List<String> getJunctionIdList() {
+    public List<String> getJunctionIdList() {
         synchronized (traciLock) {
             try {
-                 // Cast is safe as SUMO usually returns a list of strings here
                 return (List<String>) connection.do_job_get(Junction.getIDList());
             } catch (Exception e) { return Collections.emptyList(); }
         }
@@ -387,8 +350,6 @@ public class SimulationEngine implements ISimulationEngine {
             } catch (Exception e) { return Collections.emptyList(); }
         }
     }
-
-    // --- ROUTES / EDGES ---
 
     @SuppressWarnings("unchecked")
     @Override
@@ -448,8 +409,6 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
     
-    
-    
     public byte getVehicleLaneIndex(String vehicleId) {
         synchronized (traciLock) {
             try {
@@ -459,7 +418,7 @@ public class SimulationEngine implements ISimulationEngine {
     }
 
     // =================================================================================
-    // WRITER METHODS
+    // WRITERS
     // =================================================================================
 
     @Override
@@ -485,21 +444,13 @@ public class SimulationEngine implements ISimulationEngine {
     }
     
     @Override
-    public void spawnVehicle(String id, String routeId,byte edgeLane, String typeId, int r, int g, int b, double speedInMps) {
+    public void spawnVehicle(String id, String routeId, byte edgeLane, String typeId, int r, int g, int b, double speedInMps) {
         synchronized (traciLock) {
             try {
-                // Use speedInMps as departSpeed (6th argument)
-                // -2 = NOW (Time)
-                // 0.0 = POS (Start of lane)
-                // speedInMps = Depart Speed
-                // -2 = First Allowed Lane
                 connection.do_job_set(Vehicle.add(id, routeId, typeId, -2, 0.0, speedInMps, edgeLane));
-                
-                // Apply color immediately
                 SumoColor c = new SumoColor(r, g, b, 255);
                 connection.do_job_set(Vehicle.setColor(id, c));
-                
-                LOGGER.info("Spawned vehicle: " + id + " with speed " + speedInMps + " m/s and color RGB(" + r + "," + g + "," + b + ")");
+                LOGGER.info("Spawned vehicle: " + id);
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Failed to spawn vehicle: " + id, e);
             }
@@ -540,9 +491,37 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
-    // --- DEPENDENCY INJECTION ---
+    // =================================================================================
+    // NEW METHODS: FACADE PATTERN IMPLEMENTATION
+    // =================================================================================
 
+    @Override
+    public void forceGreenWave(String trafficLightId) {
+        if (trafficLightManager != null) {
+            trafficLightManager.forceGreen(trafficLightId);
+        }
+    }
+
+    @Override
+    public void forceRedStop(String trafficLightId) {
+        if (trafficLightManager != null) {
+            trafficLightManager.forceRed(trafficLightId);
+        }
+    }
+
+    @Override
+    public void checkAndHandleCongestion() {
+        if (trafficLightManager != null && infrastructureManager != null) {
+            // 1. Refresh Edge Data
+            infrastructureManager.refreshEdgeData();
+            // 2. Logic decision
+            trafficLightManager.handleCongestion(infrastructureManager.getAllEdges());
+        }
+    }
+
+    // --- DEPENDENCY INJECTION ---
     public void setVehicleManager(IVehicleManager vm) { this.vehicleManager = vm; }
     public void setTrafficLightManager(ITrafficLightManager tlm) { this.trafficLightManager = tlm; }
+    public void setInfrastructureManager(IInfrastructureManager infraManager) { this.infrastructureManager = infraManager; }
     public void setMapObserver(IMapObserver mo) { this.mapObserver = mo; }
 }
