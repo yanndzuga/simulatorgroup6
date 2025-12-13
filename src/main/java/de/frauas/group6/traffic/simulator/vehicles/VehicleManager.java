@@ -50,8 +50,11 @@ public class VehicleManager implements IVehicleManager{
 	     case "Green":{r=0; g=222; b=0; }
 	     break;
 		}
-         
-     if(lane.equals("Left")) { edgeLane=1; }//Right bleibt  0
+     if(edgeId="E45"){
+	    if(lane.equals("middle"){ edgeLane=1; }//in the middle
+        else  if(lane.equals("Left")) { edgeLane=2; }//Right bleibt  0
+	            }
+	else{  if(lane.equals("Left")) { edgeLane=2; } } //Right bleibt  0
          
          
  switch(VehicleType) {
