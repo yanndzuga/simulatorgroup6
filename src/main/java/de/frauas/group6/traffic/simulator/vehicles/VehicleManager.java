@@ -54,7 +54,7 @@ public class VehicleManager implements IVehicleManager{
 	    if(lane.equals("middle"){ edgeLane=1; }//in the middle
         else  if(lane.equals("Left")) { edgeLane=2; }//Right bleibt  0
 	            }
-	else{  if(lane.equals("Left")) { edgeLane=2; } } //Right bleibt  0
+	else{  if(lane.equals("Left")) { edgeLane=1; } } //Right bleibt  0
          
          
  switch(VehicleType) {
