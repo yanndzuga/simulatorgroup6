@@ -185,6 +185,10 @@ public class SimulationEngine implements ISimulationEngine {
             stop(); 
         }
     }
+    
+    public Object getTraciLock() {
+        return traciLock;
+    }
 
     // =================================================================================
     // READER METHODS (Thread Safe)

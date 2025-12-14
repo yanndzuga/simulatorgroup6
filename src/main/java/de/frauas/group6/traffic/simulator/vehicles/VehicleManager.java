@@ -78,23 +78,23 @@ public class VehicleManager implements IVehicleManager{
  break;   
  case "E50": {if(edgeLane==0){routeid="R7";} else if(edgeLane==1) {routeid="R8";}  }
  break;   
- case "45": {if(edgeLane==0){routeid="R9";} else if(edgeLane==1) {routeid="R10";}  else{routeid="R11";}}  
+ case "E45": {if(edgeLane==0){routeid="R9";} else if(edgeLane==1) {routeid="R10";}  else{routeid="R11";}}  
  break;   
 
- case "49": {if(edgeLane==0){routeid="R13";} else if(edgeLane==1) {routeid="R12";} }  
+ case "E49": {if(edgeLane==0){routeid="R13";} else if(edgeLane==1) {routeid="R12";} }  
  break;  
  }
  
  
  try {
- synchronized(this) {
+ synchronized(SumolationEngine.getTraciLock()) {
 		for(int i=0;i<number;i++) {
 		counter++;
 		vehicleId="VEH_"+counter;
 		Vehicle newvehicle= new Vehicle( vehicleId,TypeId,speed,color,edgeId,edgeLane);
-		System.out.println("DEBUG: Auto " + vehicleId + " in Map gelegt. Map-Größe: " + Vehicles.size());
-		SumolationEngine.spawnVehicle(vehicleId, routeid,edgeLane,TypeId, r, g, b, speed);
 		Vehicles.put(vehicleId, newvehicle);
+		System.out.println("DEBUG: Auto " + vehicleId + " in Map gelegt. Map-Größe: " + Vehicles.size());
+		SumolationEngine.spawnVehicle(vehicleId, routeid,edgeLane,TypeId, r, g, b, speed);		
 		System.out.println("DEBUG: Auto " + vehicleId + " an SUMO gesendet.");
 		successfullyAddedIds.add(vehicleId);
 		Thread.sleep(20);
@@ -193,12 +193,12 @@ public class VehicleManager implements IVehicleManager{
 	                                                                                                               }
 	
 //nach jedem step müssen wir position erneun
-	public void updateVehicles() {
+     public void updateVehicles() {
 		 //Vehicler myvehicle=Vehicles.get(VehicleId);
 		 List<String> activeIds=SumolationEngine.getVehicleIdList();
-		 this.Vehicles.keySet().retainAll(activeIds);
-		
-		
+		 //this.Vehicles.keySet().retainAll(activeIds);
+		 System.out.println("actives vehicleIds"+activeIds);
+		 System.out.println(" vehicleIds"+ this.Vehicles.values());
 	   Point2D newPos;
 	   String newEdgeId;
 	   byte newLane;
@@ -209,21 +209,78 @@ public class VehicleManager implements IVehicleManager{
 	   newLane=SumolationEngine.getVehicleLaneIndex(v);
 	   
 	   IVehicle myvehicle=Vehicles.get(v);
+	   System.out.println("aktuell vehicle"+ Vehicles.get(v));
+	   System.out.println("vehicleIds"+ v);
 	   if (myvehicle == null) {
 	        
-	        /*Error 
+	       /* Error 
 	        throw new RuntimeException("CRITICAL ERROR: SumolationEngine tried to update " + 
 	                                   "non-existent Vehicle ID: " + v + 
 	                                   ". Check Sim-Controller logic or deletion process."); */
 		   System.out.println("Sync Info: Données reçues pour " + v + " avant sa création Java. Ignoré pour ce step.");
-          
+          continue;
 	    }
 		myvehicle.setPosition(newPos);
 		myvehicle.setEdgeId(newEdgeId);
 		myvehicle.setEdgeLane(newLane);
-	   }
-		
-	                                                                                                     }
+	   }      
+	   
+
+     }
+	
+     /*
+	public void updateVehicles() {
+	     List<String> activeIds = SumolationEngine.getVehicleIdList();
+	     
+	     // 1. ZUERST: Nicht mehr existierende Fahrzeuge aus der Map entfernen
+	     // Wir erstellen eine Liste aller Keys, die JETZT in der Map sind,
+	     // und entfernen nur die, die NICHT in activeIds sind.
+	     List<String> keysToRemove = new ArrayList<>();
+	     for (String id : this.Vehicles.keySet()) {
+	         if (!activeIds.contains(id)) {
+	             keysToRemove.add(id);
+	             // DEBUG: System.out.println("DEBUG: Entferne gelöschtes Auto " + id);
+	         }
+	     }
+	     this.Vehicles.keySet().removeAll(keysToRemove); // Entfernt die gelöschten Autos sicher.
+	     
+	     // 2. Füge neue Fahrzeuge hinzu (Diese Logik fehlt und ist komplexer. Da Sie alle VORHER in die Map tun, ist dieser Schritt OK.)
+
+	     // 3. Position aktualisieren
+	     Point2D newPos;
+	     String newEdgeId;
+	     byte newLane;
+	     
+	     // HINWEIS: Jetzt müssen wir nur über die activeIds ITERIEREN, da diese alle existierenden Autos enthalten.
+	     for(String v: activeIds) {
+	         IVehicle myvehicle = Vehicles.get(v);
+	         
+	         // Wenn das Auto in SUMO existiert, aber noch nicht in unserer Map (was nach dem Spawnen kurz der Fall sein könnte)
+	         if (myvehicle == null) {
+	             // Das Auto wurde gerade in SUMO erstellt, aber der Injektions-Thread war zu langsam oder die Map-Initialisierung fehlt.
+	             // Im aktuellen Setup wird dies zu einem Fehler führen, da myvehicle.setPosition() fehlschlägt.
+	             // Sie müssen die Autos daher VOR dem Spawnen in die Map legen, was Sie tun, ABER:
+	             
+	             // Da Sie die Autos in injectVehicle IN EINEN NEUEN THREAD packen, ist die Aktualisierung
+	             // der Map außerhalb des Threads unsicher. Fügen Sie die Logik hinzu, um das Problem zu debuggen.
+	             System.out.println("CRITICAL SYNC INFO: Auto " + v + " existiert in SUMO, aber nicht in Java Map!");
+	             continue; // Überspringe dieses Auto, um NullPointerException zu vermeiden
+	         }
+	         
+	         // Normale Aktualisierung
+	         newPos = SumolationEngine.getVehiclePosition(v);
+	         newEdgeId = SumolationEngine.getVehicleRoadId(v);
+	         newLane = SumolationEngine.getVehicleLaneIndex(v);
+	         
+	         myvehicle.setPosition(newPos);
+	         myvehicle.setEdgeId(newEdgeId);
+	         myvehicle.setEdgeLane(newLane);
+	     }
+	}*/
+	
+	
+	
+	
 	 
 	
 	

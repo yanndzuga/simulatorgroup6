@@ -42,61 +42,61 @@
     <location netOffset="0.00,0.00" convBoundary="100.00,-100.00,400.00,100.00" origBoundary="-10000000000.00,-10000000000.00,10000000000.00,10000000000.00" projParameter="!"/>
 
     <edge id="-E45" from="J55" to="J54" priority="-1">
-        <lane id="-E45_0" index="0" speed="13.89" length="100.00" shape="204.80,10.40 204.80,100.00"/>
-        <lane id="-E45_1" index="1" speed="13.89" length="100.00" shape="201.60,10.40 201.60,100.00"/>
+        <lane id="-E45_0" index="0" speed="60" length="100.00" shape="204.80,10.40 204.80,100.00"/>
+        <lane id="-E45_1" index="1" speed="60" length="100.00" shape="201.60,10.40 201.60,100.00"/>
     </edge>
     <edge id="-E46" from="J55" to="J56" priority="-1">
-        <lane id="-E46_0" index="0" speed="13.89" length="100.00" shape="195.20,-10.40 195.20,-100.00"/>
-        <lane id="-E46_1" index="1" speed="13.89" length="100.00" shape="198.40,-10.40 198.40,-100.00"/>
+        <lane id="-E46_0" index="0" speed="60" length="100.00" shape="195.20,-10.40 195.20,-100.00"/>
+        <lane id="-E46_1" index="1" speed="60" length="100.00" shape="198.40,-10.40 198.40,-100.00"/>
     </edge>
     <edge id="-E47" from="J55" to="J57" priority="-1">
-        <lane id="-E47_0" index="0" speed="13.89" length="100.00" shape="210.40,-4.80 289.60,-4.80"/>
-        <lane id="-E47_1" index="1" speed="13.89" length="100.00" shape="210.40,-1.60 289.60,-1.60"/>
+        <lane id="-E47_0" index="0" speed="60" length="100.00" shape="210.40,-4.80 289.60,-4.80"/>
+        <lane id="-E47_1" index="1" speed="60" length="100.00" shape="210.40,-1.60 289.60,-1.60"/>
     </edge>
     <edge id="-E48" from="J58" to="J55" priority="-1">
-        <lane id="-E48_0" index="0" speed="13.89" length="100.00" shape="100.00,-4.80 186.40,-4.80"/>
-        <lane id="-E48_1" index="1" speed="13.89" length="100.00" shape="100.00,-1.60 186.40,-1.60"/>
+        <lane id="-E48_0" index="0" speed="60" length="100.00" shape="100.00,-4.80 186.40,-4.80"/>
+        <lane id="-E48_1" index="1" speed="60" length="100.00" shape="100.00,-1.60 186.40,-1.60"/>
     </edge>
     <edge id="-E49" from="J57" to="J59" priority="-1">
-        <lane id="-E49_0" index="0" speed="13.89" length="100.00" shape="310.40,-4.80 400.00,-4.80"/>
-        <lane id="-E49_1" index="1" speed="13.89" length="100.00" shape="310.40,-1.60 400.00,-1.60"/>
+        <lane id="-E49_0" index="0" speed="60" length="100.00" shape="310.40,-4.80 400.00,-4.80"/>
+        <lane id="-E49_1" index="1" speed="609" length="100.00" shape="310.40,-1.60 400.00,-1.60"/>
     </edge>
     <edge id="-E50" from="J57" to="J60" priority="-1">
-        <lane id="-E50_0" index="0" speed="13.89" length="100.00" shape="304.80,10.40 304.80,100.00"/>
-        <lane id="-E50_1" index="1" speed="13.89" length="100.00" shape="301.60,10.40 301.60,100.00"/>
+        <lane id="-E50_0" index="0" speed="60" length="100.00" shape="304.80,10.40 304.80,100.00"/>
+        <lane id="-E50_1" index="1" speed="60" length="100.00" shape="301.60,10.40 301.60,100.00"/>
     </edge>
     <edge id="-E51" from="J61" to="J57" priority="-1">
-        <lane id="-E51_0" index="0" speed="13.89" length="100.00" shape="304.80,-100.00 304.80,-10.40"/>
-        <lane id="-E51_1" index="1" speed="13.89" length="100.00" shape="301.60,-100.00 301.60,-10.40"/>
+        <lane id="-E51_0" index="0" speed="60" length="100.00" shape="304.80,-100.00 304.80,-10.40"/>
+        <lane id="-E51_1" index="1" speed="60" length="100.00" shape="301.60,-100.00 301.60,-10.40"/>
     </edge>
     <edge id="E45" from="J54" to="J55" priority="-1">
-        <lane id="E45_0" index="0" speed="13.89" length="100.00" shape="192.00,100.00 192.00,10.40"/>
-        <lane id="E45_1" index="1" speed="13.89" length="100.00" shape="195.20,100.00 195.20,10.40"/>
-        <lane id="E45_2" index="2" speed="13.89" length="100.00" shape="198.40,100.00 198.40,10.40"/>
+        <lane id="E45_0" index="0" speed="60" length="100.00" shape="192.00,100.00 192.00,10.40"/>
+        <lane id="E45_1" index="1" speed="60" length="100.00" shape="195.20,100.00 195.20,10.40"/>
+        <lane id="E45_2" index="2" speed="60" length="100.00" shape="198.40,100.00 198.40,10.40"/>
     </edge>
     <edge id="E46" from="J56" to="J55" priority="-1">
-        <lane id="E46_0" index="0" speed="13.89" length="100.00" shape="204.80,-100.00 204.80,-10.40"/>
-        <lane id="E46_1" index="1" speed="13.89" length="100.00" shape="201.60,-100.00 201.60,-10.40"/>
+        <lane id="E46_0" index="0" speed="60" length="100.00" shape="204.80,-100.00 204.80,-10.40"/>
+        <lane id="E46_1" index="1" speed="60" length="100.00" shape="201.60,-100.00 201.60,-10.40"/>
     </edge>
     <edge id="E47" from="J57" to="J55" priority="-1">
-        <lane id="E47_0" index="0" speed="13.89" length="100.00" shape="289.60,4.80 210.40,4.80"/>
-        <lane id="E47_1" index="1" speed="13.89" length="100.00" shape="289.60,1.60 210.40,1.60"/>
+        <lane id="E47_0" index="0" speed="60" length="100.00" shape="289.60,4.80 210.40,4.80"/>
+        <lane id="E47_1" index="1" speed="60" length="100.00" shape="289.60,1.60 210.40,1.60"/>
     </edge>
     <edge id="E48" from="J55" to="J58" priority="-1">
-        <lane id="E48_0" index="0" speed="13.89" length="100.00" shape="186.40,4.80 100.00,4.80"/>
-        <lane id="E48_1" index="1" speed="13.89" length="100.00" shape="186.40,1.60 100.00,1.60"/>
+        <lane id="E48_0" index="0" speed="60" length="100.00" shape="186.40,4.80 100.00,4.80"/>
+        <lane id="E48_1" index="1" speed="60" length="100.00" shape="186.40,1.60 100.00,1.60"/>
     </edge>
     <edge id="E49" from="J59" to="J57" priority="-1">
-        <lane id="E49_0" index="0" speed="13.89" length="100.00" shape="400.00,4.80 310.40,4.80"/>
-        <lane id="E49_1" index="1" speed="13.89" length="100.00" shape="400.00,1.60 310.40,1.60"/>
+        <lane id="E49_0" index="0" speed="60" length="100.00" shape="400.00,4.80 310.40,4.80"/>
+        <lane id="E49_1" index="1" speed="60" length="100.00" shape="400.00,1.60 310.40,1.60"/>
     </edge>
     <edge id="E50" from="J60" to="J57" priority="-1">
-        <lane id="E50_0" index="0" speed="13.89" length="100.00" shape="295.20,100.00 295.20,10.40"/>
-        <lane id="E50_1" index="1" speed="13.89" length="100.00" shape="298.40,100.00 298.40,10.40"/>
+        <lane id="E50_0" index="0" speed="60" length="100.00" shape="295.20,100.00 295.20,10.40"/>
+        <lane id="E50_1" index="1" speed="60" length="100.00" shape="298.40,100.00 298.40,10.40"/>
     </edge>
     <edge id="E51" from="J57" to="J61" priority="-1">
-        <lane id="E51_0" index="0" speed="13.89" length="100.00" shape="295.20,-10.40 295.20,-100.00"/>
-        <lane id="E51_1" index="1" speed="13.89" length="100.00" shape="298.40,-10.40 298.40,-100.00"/>
+        <lane id="E51_0" index="0" speed="60" length="100.00" shape="295.20,-10.40 295.20,-100.00"/>
+        <lane id="E51_1" index="1" speed="60" length="100.00" shape="298.40,-10.40 298.40,-100.00"/>
     </edge>
 
     <tlLogic id="J55" type="static" programID="0" offset="0">

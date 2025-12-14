@@ -58,6 +58,7 @@ public interface ISimulationEngine {
     void pause();
     void resume();
     boolean isPaused();
+    Object getTraciLock();
 
 	void setMapObserver(IMapObserver guiManager);
 
