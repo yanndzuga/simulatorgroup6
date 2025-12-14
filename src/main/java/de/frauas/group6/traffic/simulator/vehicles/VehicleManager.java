@@ -6,11 +6,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 
-//import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
-//import de.frauas.group6.traffic.simulator.vehicles.Vehicle;
 
 public class VehicleManager implements IVehicleManager{
 	
@@ -51,7 +48,7 @@ public class VehicleManager implements IVehicleManager{
 	     break;
 		}
      if(edgeId.equals("E45")){
-	    if(lane.equals("middle")){ edgeLane=1; }//in the middle
+	    if(lane.equals("Middle")){ edgeLane=1; }//in the middle
         else  if(lane.equals("Left")) { edgeLane=2; }//Right bleibt  0
 	            }
 	else{  if(lane.equals("Left")) { edgeLane=1; } } //Right bleibt  0
@@ -82,8 +79,7 @@ public class VehicleManager implements IVehicleManager{
  }
  }
 		catch(Exception e) {    
-		//wenn ein problem bei inject in sumo passiert löschen wir die autos von unserer Liste
- System.err.println("CRITICAL TRAFFIC INJECTION FAILURE: " + e.getMessage());
+		
  
 
  for (String id : successfullyAddedIds) {
