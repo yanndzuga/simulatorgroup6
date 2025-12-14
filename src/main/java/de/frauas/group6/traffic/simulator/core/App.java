@@ -3,6 +3,8 @@ package de.frauas.group6.traffic.simulator.core;
 import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
+import de.frauas.group6.traffic.simulator.vehicles.VehicleManager;
+import de.frauas.group6.traffic.simulator.view.GuiManager;
 import de.frauas.group6.traffic.simulator.view.IMapObserver;
 
 // NOTE: Ideally, import the concrete implementations from other packages
@@ -25,15 +27,18 @@ public class App {
         // 2. Create the Components (Members 2, 3, 4, 5)
         
         IStatsCollector statsCollector = null; // statsCollector = new StatsCollector(engine);
-        IVehicleManager vehicleMgr = null; // vehicleMgr = new VehicleManager(engine);
+        IVehicleManager vehicleMgr = null; // 
+        vehicleMgr = new VehicleManager(engine);
         ITrafficLightManager lightMgr = null; // lightMgr = new TrafficLightManager(engine);
-        IMapObserver mapView = null; // mapView = new MapCanvas(engine, statsCollector);
+        ; // mapView = new MapCanvas(engine, statsCollector);
+        
+        GuiManager.startUI( engine,  vehicleMgr);
 
         // 3. Dependency Injection (Wiring everything together)
         // This is why we need Setters in SimulationEngine!
         engine.setVehicleManager(vehicleMgr);
         engine.setTrafficLightManager(lightMgr);
-        engine.setMapObserver(mapView);
+        
 
         // 4. Initialize SUMO Connection
         try {

@@ -19,7 +19,7 @@ public class VehicleManager implements IVehicleManager{
 	static Long counter;//Anzahl von Autos bis jetzt 
 	
 	//Konstruktor mit Parammeter
-	VehicleManager(ISimulationEngine SumolationEngine){ this. SumolationEngine= SumolationEngine;Vehicles = new ConcurrentHashMap<String,IVehicle>(); counter=(long)0; System.out.println("ACHTUNG: Ein neuer VehicleManager wurde erstellt! " + this); }
+	public VehicleManager(ISimulationEngine SumolationEngine){ this. SumolationEngine= SumolationEngine;Vehicles = new ConcurrentHashMap<String,IVehicle>(); counter=(long)0; System.out.println("ACHTUNG: Ein neuer VehicleManager wurde erstellt! " + this); }
 	
 	
 	

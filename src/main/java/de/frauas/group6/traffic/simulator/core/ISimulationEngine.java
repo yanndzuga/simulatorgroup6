@@ -3,6 +3,9 @@ package de.frauas.group6.traffic.simulator.core;
 import java.awt.geom.Point2D;
 import java.util.List;
 
+import de.frauas.group6.traffic.simulator.view.GuiManager;
+import de.frauas.group6.traffic.simulator.view.IMapObserver;
+
 
 
 public interface ISimulationEngine {
@@ -55,4 +58,8 @@ public interface ISimulationEngine {
     void pause();
     void resume();
     boolean isPaused();
+
+	void setMapObserver(IMapObserver guiManager);
+
+	//void setMapObserver(GuiManager guiManager);
 }
