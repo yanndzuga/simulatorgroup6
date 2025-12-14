@@ -262,16 +262,24 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
+ 
+
+    /**
+     * Retrieves the list of all Traffic Light IDs from SUMO.
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<String> getTrafficLightIdList() {
         synchronized (traciLock) {
             try {
+                // Real TraCI call to get IDs
                 return (List<String>) connection.do_job_get(Trafficlight.getIDList());
-            } catch (Exception e) { return Collections.emptyList(); }
+            } catch (Exception e) {
+                System.err.println("Error fetching Traffic Light IDs: " + e.getMessage());
+                return Collections.emptyList();
+            }
         }
     }
-
     @Override
     public int getTrafficLightPhase(String tlId) {
         synchronized (traciLock) {
@@ -300,7 +308,22 @@ public class SimulationEngine implements ISimulationEngine {
             } catch (Exception e) { return ""; }
         }
     }
-
+    
+    public String getTrafficLightDebugInfo(String tlId) {
+        synchronized (traciLock) {
+            try {
+                // Get State
+                String state = (String) connection.do_job_get(Trafficlight.getRedYellowGreenState(tlId));
+                // Get Duration (convert ms to seconds)
+                int durationMs = (int) connection.do_job_get(Trafficlight.getPhaseDuration(tlId));
+                int durationSec = durationMs / 1000;
+                
+                return "State: " + state + " | Duration: " + durationSec + "s";
+            } catch (Exception e) {
+                return "Error: Could not fetch info";
+            }
+        }
+    }
     @Override
     public List<String> getControlledLanes(String tlId) {
         synchronized (traciLock) {
@@ -517,7 +540,7 @@ public class SimulationEngine implements ISimulationEngine {
             // 2. Logic decision
             trafficLightManager.handleCongestion(infrastructureManager.getAllEdges());
         }
-    }
+    }  
 
     // --- DEPENDENCY INJECTION ---
     public void setVehicleManager(IVehicleManager vm) { this.vehicleManager = vm; }

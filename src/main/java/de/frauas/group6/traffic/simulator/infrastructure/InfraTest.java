@@ -1,4 +1,4 @@
-/*package de.frauas.group6.traffic.simulator.infrastructure;
+package de.frauas.group6.traffic.simulator.infrastructure;
 
 import de.frauas.group6.traffic.simulator.core.SimulationEngine;
 
@@ -56,4 +56,4 @@ public class InfraTest {
             e.printStackTrace();
         }
     }
-}*/
+} 
