@@ -3,12 +3,8 @@ package de.frauas.group6.traffic.simulator.infrastructure;
 import java.awt.geom.Point2D;
 import java.util.List;
 
-public interface IEdge {
+public interface IJunction {
     String getId();
     List<Point2D> getShape();
-    double getLength();
-    
-    // For Congestion Management
-    int getVehicleCount();
-    void setVehicleCount(int count);
+    Point2D getPosition();
 }

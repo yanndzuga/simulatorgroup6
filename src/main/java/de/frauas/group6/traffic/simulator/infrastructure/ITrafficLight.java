@@ -1,21 +1,17 @@
 package de.frauas.group6.traffic.simulator.infrastructure;
 
-import java.awt.geom.Point2D;
+import java.util.List;
 
 public interface ITrafficLight {
-	
-	String getId();
-    
-    // Where to draw the traffic light icon
-    Point2D getPosition();
-    
-    // The current state string (e.g., "GrGr") or simplified state
-    String getState();
-    
-    // The current phase index
+    String getId();
     int getCurrentPhase();
-    
-    // Time remaining for current phase
+    String getCurrentState();
     long getRemainingTime();
+    
+    List<String> getControlledLanes();
 
+    void setCurrentPhase(int phase);
+    void setCurrentState(String state);
+    void setRemainingTime(long time);
+    void setControlledLanes(List<String> lanes);
 }

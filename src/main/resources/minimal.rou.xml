@@ -12,11 +12,11 @@
     <route id="R4" edges="E46 E45"/>
     <route id="R5" edges="-E51 -E49"/>
     <route id="R6" edges="-E51 -E50"/>
-    <route id="R7" edges="E50 E47"/>
+    <route id="R7" edges="E50 E47 E48"/>
     <route id="R8" edges="E50 E51"/>
     <route id="R9" edges="E45 E48"/>
     <route id="R10" edges="E45 -E46"/>
-    <route id="R11" edges="E45 -E47"/>
+    <route id="R11" edges="E45 -E47 E49"/>
     <route id="R12" edges="E49 E47 E48"/>
     <route id="R13" edges="E49 -E50"/>
 </routes>

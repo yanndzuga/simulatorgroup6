@@ -2,18 +2,16 @@ package de.frauas.group6.traffic.simulator.core;
 
 import java.awt.geom.Point2D;
 import java.util.List;
-
 import de.frauas.group6.traffic.simulator.view.GuiManager;
 import de.frauas.group6.traffic.simulator.view.IMapObserver;
 
 
-
 public interface ISimulationEngine {
 
-	 // --- time control ---
+    // --- Time Control ---
     double getCurrentSimulationTime();
 
-    // --- Vehicles (for member 2 & 4 & 5) ---
+    // --- Vehicles ---
     List<String> getVehicleIdList();
     Point2D getVehiclePosition(String vehicleId);
     double getVehicleSpeed(String vehicleId);
@@ -23,12 +21,12 @@ public interface ISimulationEngine {
     String getVehicleIdAtPosition(double x, double y, double radius);
     byte getVehicleLaneIndex(String vehicleId);
     
-    void spawnVehicle(String id, String routeId,byte edgeLane, String typeId, int r, int g, int b, double speedInMps);
+    void spawnVehicle(String id, String routeId, byte edgeLane, String typeId, int r, int g, int b, double speedInMps);
     void setVehicleColor(String id, int r, int g, int b);
     void setVehicleSpeed(String id, double speed);
     void removeVehicle(String id);
 
-    // --- Trafficlight (member 3) ---
+    // --- Traffic Lights ---
     List<String> getTrafficLightIdList();
     int getTrafficLightPhase(String tlId);
     long getTrafficLightRemainingTime(String tlId);
@@ -37,30 +35,35 @@ public interface ISimulationEngine {
     int getLaneWaitingVehicleCount(String laneId);
     Point2D getTrafficLightPosition(String tlId);
     
-    // --- junction (member 3 && 4) ---
-    List<Point2D> getJunctionShape(String junctionId);
-    List<String> getJunctionIdList();
-    
     void setTrafficLightPhase(String tlId, int phaseIndex);
     void setTrafficLightDuration(String tlId, int durationSeconds);
 
-    // --- edge  ---
+    // --- Advanced Traffic Control (Milestone 2 Features) ---
+    void forceGreenWave(String trafficLightId);
+    void forceRedStop(String trafficLightId);
+    void checkAndHandleCongestion();
+
+    // --- Junctions ---
+    List<Point2D> getJunctionShape(String junctionId);
+    List<String> getJunctionIdList();
+    
+    // --- Edges / Infrastructure ---
     List<String> getEdgeIdList();
     List<Point2D> getEdgeShape(String edgeId);
     int getEdgeVehicleCount(String edgeId);
     List<String> getLaneList(String edgeId);
     double getEdgeLength(String edgeId);
     
-    // --- engine control ---
+    // --- Engine Control ---
     void start();
     void stop();
     void step();
     void pause();
     void resume();
     boolean isPaused();
-    Object getTraciLock();
+
 
 	void setMapObserver(IMapObserver guiManager);
 
-	//void setMapObserver(GuiManager guiManager);
 }
+
