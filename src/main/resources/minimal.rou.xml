@@ -1,11 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd">
-
-    <vType id="DEFAULT_VEHTYPE" vClass="passenger" length="5.0" accel="2.6" decel="4.5" maxSpeed="55.56" color="grey"/>
+    <vType id="BUS_TYPE" length="12.00" maxSpeed="40.00" vClass="bus" personCapacity="30" accel="2.0"/>
+    <vType id="DEFAULT_VEHTYPE" color="grey"/>
+    <vType id="RESCUE_TYPE" length="5.00" maxSpeed="60.00" vClass="emergency" accel="3.5"/>
     
-    <route id="route_0" edges="-E48 -E47 -E49" />
-
-    <route id="route_1" edges="-E48 -E45" />
-
+    <route id="R0" edges="-E48 -E47 -E49"/>
+    <route id="R1" edges="-E48 -E45"/>
+    <route id="R2" edges="E46 -E47 -E49"/>
+    <route id="R3" edges="E46 E48"/>
+    <route id="R4" edges="E46 E45"/>
+    <route id="R5" edges="-E51 -E49"/>
+    <route id="R6" edges="-E51 -E50"/>
+    <route id="R7" edges="E50 E47"/>
+    <route id="R8" edges="E50 E51"/>
+    <route id="R9" edges="E45 E48"/>
+    <route id="R10" edges="E45 -E46"/>
+    <route id="R11" edges="E45 -E47"/>
+    <route id="R12" edges="E49 E47 E48"/>
+    <route id="R13" edges="E49 -E50"/>
 </routes>

@@ -10,6 +10,7 @@ import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import java.awt.geom.Point2D;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -19,11 +20,13 @@ public class MapView extends Pane {
     private ISimulationEngine engine;
     private IVehicleManager vehicleManager;
 
-    // Zoom & Pan
     private double scale = 2.0;
     private double offsetX = 50;
     private double offsetY = 500; 
     private double lastMouseX, lastMouseY;
+
+    // Activez ceci pour voir les jonctions en jaune flashy
+    private boolean debugColors = true; 
 
     private Consumer<String> onVehicleSelected;
 
@@ -36,7 +39,6 @@ public class MapView extends Pane {
         canvas.widthProperty().bind(widthProperty());
         canvas.heightProperty().bind(heightProperty());
 
-        // Zoom
         this.setOnScroll((ScrollEvent event) -> {
             double zoomFactor = 1.1;
             if (event.getDeltaY() < 0) zoomFactor = 1 / zoomFactor;
@@ -44,7 +46,6 @@ public class MapView extends Pane {
             render(); 
         });
 
-        // Pan & Click
         this.setOnMousePressed(e -> {
             lastMouseX = e.getX();
             lastMouseY = e.getY();
@@ -73,11 +74,9 @@ public class MapView extends Pane {
     }
 
     private void handleSelection(double screenX, double screenY) {
-        // Conversion Écran -> Monde
         double simX = (screenX - offsetX) / scale;
         double simY = (offsetY - screenY) / scale; 
         
-        // Utilisation de la méthode de l'Engine (recherche géométrique)
         String id = engine.getVehicleIdAtPosition(simX, simY, 10.0);
         if (id != null && onVehicleSelected != null) {
             onVehicleSelected.accept(id);
@@ -85,6 +84,8 @@ public class MapView extends Pane {
     }
 
     public void render() {
+        if (getWidth() <= 0 || getHeight() <= 0) return;
+
         GraphicsContext gc = canvas.getGraphicsContext2D();
         double w = getWidth();
         double h = getHeight();
@@ -98,13 +99,15 @@ public class MapView extends Pane {
         // 2. Routes & Jonctions
         drawInfrastructure(gc);
 
-        // 3. Véhicules (Adaptation au Manager du collègue)
-        // On récupère la collection d'objets IVehicle
-        for (IVehicle v : vehicleManager.getAllVehicles()) {
-            drawVehicle(gc, v);
+        // 3. Véhicules
+        if (vehicleManager != null) {
+            Collection<IVehicle> vehicles = vehicleManager.getAllVehicles();
+            for (IVehicle v : vehicles) {
+                drawVehicle(gc, v);
+            }
         }
         
-        // 4. Feux
+        // 4. Feux (Dessinés EN DERNIER pour être au-dessus de tout)
         drawTrafficLights(gc);
     }
     
@@ -115,9 +118,8 @@ public class MapView extends Pane {
         double x = tx(pos.getX());
         double y = ty(pos.getY());
         
-        // TRADUCTION COULEUR (String -> JavaFX Color)
         String colorStr = v.getColor();
-        Color c = Color.WHITE; // Défaut
+        Color c = Color.WHITE; 
         if(colorStr != null) {
             switch(colorStr) {
                 case "Rot": c = Color.RED; break;
@@ -128,47 +130,43 @@ public class MapView extends Pane {
         }
         gc.setFill(c);
         
-        // TRADUCTION FORME (Type -> Rectangle/Triangle)
-        // Le manager mappe: "Standard-Car", "Truck", "Emergency-Vehicle", "City-Bus"
-        String typeId = v.getTypeId(); // ex: "BUS_TYPE" ou "RESCUE_TYPE"
+        String typeId = v.getTypeId(); 
         
         double width = 4 * scale;
         double length = 8 * scale;
         
         if (typeId != null) {
             if (typeId.contains("BUS")) {
-                length = 14 * scale;
-                width = 5 * scale;
+                length = 14 * scale; width = 5 * scale;
                 gc.fillRect(x - width/2, y - length/2, width, length);
             } else if (typeId.contains("RESCUE")) {
-                // Triangle
                 double[] xP = {x, x - width, x + width};
                 double[] yP = {y - length/2, y + length/2, y + length/2};
                 gc.fillPolygon(xP, yP, 3);
-            } else if (typeId.contains("CONTAINER")) { // Truck
+            } else if (typeId.contains("CONTAINER")) { 
                 length = 12 * scale;
                 gc.fillRect(x - width/2, y - length/2, width, length);
             } else {
-                // Voiture standard (Cercle/Ovale)
                 gc.fillOval(x - width/2, y - length/2, width, length);
             }
         } else {
              gc.fillOval(x - width/2, y - length/2, width, length);
         }
-        
-        // ID si zoomé
-        if (scale > 2.0) {
-            gc.setFill(Color.WHITE);
-            gc.fillText(v.getId(), x + 5, y);
-        }
     }
     
     private void drawInfrastructure(GraphicsContext gc) {
-        // Jonctions
-        gc.setFill(Color.web("#404040"));
-        for (String jId : engine.getJunctionIdList()) {
+        // --- JONCTIONS ---
+        // Couleur debug ou normale
+        gc.setFill(debugColors ? Color.YELLOW.deriveColor(0, 1, 1, 0.3) : Color.web("#404040"));
+        
+        List<String> junctions = engine.getJunctionIdList();
+        if (junctions.isEmpty()) {
+            // System.out.println("DEBUG: Aucune jonction trouvée !");
+        }
+
+        for (String jId : junctions) {
             List<Point2D> shape = engine.getJunctionShape(jId);
-            if (shape.size() > 2) {
+            if (shape != null && shape.size() > 2) {
                 double[] xP = new double[shape.size()];
                 double[] yP = new double[shape.size()];
                 for (int i = 0; i < shape.size(); i++) {
@@ -178,15 +176,18 @@ public class MapView extends Pane {
                 gc.fillPolygon(xP, yP, shape.size());
             }
         }
-        // Routes
+
+        // --- ROUTES ---
         gc.setLineWidth(4 * scale);
         gc.setStroke(Color.web("#505050"));
         for (String edgeId : engine.getEdgeIdList()) {
             drawPolyline(gc, engine.getEdgeShape(edgeId));
         }
-        // Lignes
+        
+        // Lignes pointillées
         gc.setStroke(Color.WHITE);
-        gc.setLineWidth(1); gc.setLineDashes(10);
+        gc.setLineWidth(1); 
+        gc.setLineDashes(10);
         for (String edgeId : engine.getEdgeIdList()) {
             drawPolyline(gc, engine.getEdgeShape(edgeId));
         }
@@ -194,17 +195,44 @@ public class MapView extends Pane {
     }
     
     private void drawTrafficLights(GraphicsContext gc) {
-        for(String tlId : engine.getTrafficLightIdList()) {
+        List<String> tls = engine.getTrafficLightIdList();
+        if (tls.isEmpty()) {
+            // System.out.println("DEBUG: Aucun feu tricolore trouvé !");
+        }
+
+        for(String tlId : tls) {
              Point2D pos = engine.getTrafficLightPosition(tlId);
-             String state = engine.getTrafficLightState(tlId);
-             Color c = (state.toLowerCase().contains("g")) ? Color.GREEN : Color.RED;
-             gc.setFill(c);
-             gc.fillOval(tx(pos.getX()) - 3, ty(pos.getY()) - 3, 6, 6);
+             if (pos != null) {
+                 String state = engine.getTrafficLightState(tlId);
+                 
+                 // Logique de couleur feu
+                 Color c = Color.RED;
+                 if (state != null) {
+                     if (state.toLowerCase().contains("g")) c = Color.LIME; // Vert
+                     else if (state.toLowerCase().contains("y")) c = Color.ORANGE; // Jaune
+                 }
+                 
+                 // Dessin du feu (Cercle avec contour blanc pour visibilité)
+                 double size = 8 * scale; // Plus gros pour bien voir
+                 
+                 gc.setStroke(Color.WHITE);
+                 gc.setLineWidth(1);
+                 gc.strokeOval(tx(pos.getX()) - size/2, ty(pos.getY()) - size/2, size, size);
+                 
+                 gc.setFill(c);
+                 gc.fillOval(tx(pos.getX()) - size/2, ty(pos.getY()) - size/2, size, size);
+                 
+                 // ID du feu si debug
+                 if (debugColors) {
+                     gc.setFill(Color.CYAN);
+                     gc.fillText(tlId, tx(pos.getX()) + size, ty(pos.getY()));
+                 }
+             }
         }
     }
 
     private void drawPolyline(GraphicsContext gc, List<Point2D> points) {
-        if (points.size() < 2) return;
+        if (points == null || points.size() < 2) return;
         gc.beginPath();
         gc.moveTo(tx(points.get(0).getX()), ty(points.get(0).getY()));
         for (int i = 1; i < points.size(); i++) {

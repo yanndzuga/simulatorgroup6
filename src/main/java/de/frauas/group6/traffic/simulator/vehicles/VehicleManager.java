@@ -67,17 +67,37 @@ public class VehicleManager implements IVehicleManager{
          break;
          case "City-Bus": { TypeId="BUS_TYPE";}     
          }
+ String routeid=" ";
+ switch(edgeId){
+
+ case "-E48": {if(edgeLane==0){routeid="R0";} else if(edgeLane==1) {routeid="R1";}  }
+ break;   
+ case "-E46": {if(edgeLane==0){routeid="R2";} else if(edgeLane==1) {routeid="R3";}  }
+ break;   
+ case "-E51": {if(edgeLane==0){routeid="R5";} else if(edgeLane==1) {routeid="R6";}  }
+ break;   
+ case "E50": {if(edgeLane==0){routeid="R7";} else if(edgeLane==1) {routeid="R8";}  }
+ break;   
+ case "45": {if(edgeLane==0){routeid="R9";} else if(edgeLane==1) {routeid="R10";}  else{routeid="R11";}}  
+ break;   
+
+ case "49": {if(edgeLane==0){routeid="R13";} else if(edgeLane==1) {routeid="R12";} }  
+ break;  
+ }
+ 
+ 
  try {
  synchronized(this) {
 		for(int i=0;i<number;i++) {
 		counter++;
 		vehicleId="VEH_"+counter;
 		Vehicle newvehicle= new Vehicle( vehicleId,TypeId,speed,color,edgeId,edgeLane);
-		Vehicles.put(vehicleId, newvehicle);
 		System.out.println("DEBUG: Auto " + vehicleId + " in Map gelegt. Map-Größe: " + Vehicles.size());
-		SumolationEngine.spawnVehicle(vehicleId, edgeId,edgeLane,TypeId, r, g, b, speed);
+		SumolationEngine.spawnVehicle(vehicleId, routeid,edgeLane,TypeId, r, g, b, speed);
+		Vehicles.put(vehicleId, newvehicle);
 		System.out.println("DEBUG: Auto " + vehicleId + " an SUMO gesendet.");
 		successfullyAddedIds.add(vehicleId);
+		Thread.sleep(20);
 		}
  }
  }
@@ -191,10 +211,12 @@ public class VehicleManager implements IVehicleManager{
 	   IVehicle myvehicle=Vehicles.get(v);
 	   if (myvehicle == null) {
 	        
-	        //Error 
+	        /*Error 
 	        throw new RuntimeException("CRITICAL ERROR: SumolationEngine tried to update " + 
 	                                   "non-existent Vehicle ID: " + v + 
-	                                   ". Check Sim-Controller logic or deletion process."); 
+	                                   ". Check Sim-Controller logic or deletion process."); */
+		   System.out.println("Sync Info: Données reçues pour " + v + " avant sa création Java. Ignoré pour ce step.");
+          
 	    }
 		myvehicle.setPosition(newPos);
 		myvehicle.setEdgeId(newEdgeId);

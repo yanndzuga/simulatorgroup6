@@ -493,7 +493,7 @@ public class SimulationEngine implements ISimulationEngine {
                 // 0.0 = POS (Start of lane)
                 // speedInMps = Depart Speed
                 // -2 = First Allowed Lane
-                connection.do_job_set(Vehicle.add(id, routeId, typeId, -2, 0.0, speedInMps, edgeLane));
+                connection.do_job_set(Vehicle.add(id, typeId, routeId, 0, 0.0, speedInMps, edgeLane));
                 
                 // Apply color immediately
                 SumoColor c = new SumoColor(r, g, b, 255);
@@ -506,6 +506,10 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
+    
+ 
+    
+    
     @Override
     public void setVehicleColor(String id, int r, int g, int b) {
         synchronized (traciLock) {
