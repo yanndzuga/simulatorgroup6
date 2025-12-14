@@ -172,6 +172,10 @@ public class SimulationEngine implements ISimulationEngine {
             stop(); 
         }
     }
+    
+    public Object getTraciLock() {
+        return traciLock;
+    }
 
     // =================================================================================
     // READERS
@@ -470,7 +474,15 @@ public class SimulationEngine implements ISimulationEngine {
     public void spawnVehicle(String id, String routeId, byte edgeLane, String typeId, int r, int g, int b, double speedInMps) {
         synchronized (traciLock) {
             try {
-                connection.do_job_set(Vehicle.add(id, routeId, typeId, -2, 0.0, speedInMps, edgeLane));
+                // Use speedInMps as departSpeed (6th argument)
+                // -2 = NOW (Time)
+                // 0.0 = POS (Start of lane)
+                // speedInMps = Depart Speed
+                // -2 = First Allowed Lane
+                connection.do_job_set(Vehicle.add(id, typeId, routeId, 0, 0.0, speedInMps, edgeLane));
+                
+                // Apply color immediately
+
                 SumoColor c = new SumoColor(r, g, b, 255);
                 connection.do_job_set(Vehicle.setColor(id, c));
                 LOGGER.info("Spawned vehicle: " + id);
@@ -480,6 +492,10 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
+    
+ 
+    
+    
     @Override
     public void setVehicleColor(String id, int r, int g, int b) {
         synchronized (traciLock) {
