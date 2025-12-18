@@ -76,7 +76,7 @@ public class TrafficLightManager implements ITrafficLightManager {
     // =========================================================
     // SMART FEATURES (Force & Congestion Logic)
     // =========================================================
-
+    /*
     @Override
     public void forceGreen(String tlId) {
         if (!trafficLights.containsKey(tlId)) return;
@@ -94,6 +94,68 @@ public class TrafficLightManager implements ITrafficLightManager {
         System.out.println(">>> TrafficManager: Action FORCE RED on " + tlId);
         // Assuming Phase 2 is Red/Yellow
         simulationEngine.setTrafficLightPhase(tlId, 2); 
+        simulationEngine.setTrafficLightDuration(tlId, 60); 
+    }*/
+    
+    
+    
+    @Override
+    public void forceGreen(String tlId) {
+        if (!trafficLights.containsKey(tlId)) return;
+        
+        System.out.println(">>> TrafficManager: Action FORCE GREEN on " + tlId);
+        
+        int greenPhase = 0; // Défaut (Souvent Nord-Sud)
+
+        // Adaptation spécifique à votre réseau SUMO (minimal.net.xml)
+        if (tlId.equals("J55")) {
+            // Pour J55, la phase 0 est Vert pour N/S (E45/E46)
+            // La phase 4 est Vert pour E/W (E48/E47)
+            // On regarde la phase actuelle : si on est déjà en 0, on passe en 4 pour alterner
+            try {
+                int current = simulationEngine.getTrafficLightPhase(tlId);
+                if (current == 0 || current == 1 || current == 2 || current == 3) {
+                    greenPhase = 4; // On force l'autre axe (Est-Ouest / E48)
+                } else {
+                    greenPhase = 0; // On revient sur l'axe Nord-Sud
+                }
+            } catch (Exception e) {
+                greenPhase = 4; // Fallback sur E48 si erreur
+            }
+        } 
+        else if (tlId.equals("J57")) {
+            // Logique similaire pour J57 si besoin
+            // Phase 0 (GGGrr...) semble être l'axe E50/E49
+            // Phase 2 (GrrGG...) 
+            // Phase 4 (rrrr...) semble être l'autre axe
+            // On applique une logique simple d'alternance
+             try {
+                int current = simulationEngine.getTrafficLightPhase(tlId);
+                if (current == 0) greenPhase = 2; // Alternance
+                else greenPhase = 0;
+            } catch (Exception e) {}
+        }
+
+        simulationEngine.setTrafficLightPhase(tlId, greenPhase); 
+        simulationEngine.setTrafficLightDuration(tlId, 60); 
+    }
+
+    @Override
+    public void forceRed(String tlId) {
+        if (!trafficLights.containsKey(tlId)) return;
+
+        System.out.println(">>> TrafficManager: Action FORCE RED on " + tlId);
+        
+        // Phase "Tout Rouge" ou Phase Jaune -> Rouge
+        // Dans votre fichier, Phase 2 est souvent une transition rouge pour l'axe principal
+        int redPhase = 2;
+        
+        if (tlId.equals("J55")) {
+            // Phase 6 ou 2 sont souvent des phases de transition/rouge
+            redPhase = 2; 
+        }
+
+        simulationEngine.setTrafficLightPhase(tlId, redPhase); 
         simulationEngine.setTrafficLightDuration(tlId, 60); 
     }
 

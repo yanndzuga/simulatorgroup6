@@ -1,6 +1,9 @@
 package de.frauas.group6.traffic.simulator.core;
 
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+import de.frauas.group6.traffic.simulator.infrastructure.InfrastructureManager;
+import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
+import de.frauas.group6.traffic.simulator.infrastructure.TrafficLightManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.vehicles.VehicleManager;
 import de.frauas.group6.traffic.simulator.view.GuiManager;
@@ -33,10 +36,12 @@ public class App {
             // 2. Create the Component Managers
             // ------------------------------------------------------------
             // Member 2: Vehicles
-            IVehicleManager vehicleMgr = new VehicleManager(engine);
+            VehicleManager vehicleMgr = new VehicleManager(engine);
             
             // Member 3: Infrastructure (Traffic Lights) - Placeholder if not ready
-            ITrafficLightManager lightMgr = null; // new TrafficLightManager(engine);
+            ITrafficLightManager lightMgr = new TrafficLightManager(engine);
+            
+            
             
             // Member 5: Stats - Placeholder if not ready
             // IStatsCollector statsCollector = new StatsCollector(engine);
@@ -46,6 +51,7 @@ public class App {
             // ------------------------------------------------------------
             engine.setVehicleManager(vehicleMgr);
             engine.setTrafficLightManager(lightMgr);
+         
             // engine.setStatsCollector(statsCollector);
 
             // ------------------------------------------------------------
@@ -58,7 +64,7 @@ public class App {
             // 5. Start User Interface (View - Member 4)
             // ------------------------------------------------------------
             // Passes the engine and managers to the GUI so controls can work immediately
-            GuiManager.startUI(engine, vehicleMgr);
+            GuiManager.startUI(engine, vehicleMgr,lightMgr);
 
             // ------------------------------------------------------------
             // 6. Start the Simulation Loop

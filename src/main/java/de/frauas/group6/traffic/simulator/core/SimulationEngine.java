@@ -530,23 +530,8 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
-    // =================================================================================
-    // NEW METHODS: FACADE PATTERN IMPLEMENTATION
-    // =================================================================================
-
-    @Override
-    public void forceGreenWave(String trafficLightId) {
-        if (trafficLightManager != null) {
-            trafficLightManager.forceGreen(trafficLightId);
-        }
-    }
-
-    @Override
-    public void forceRedStop(String trafficLightId) {
-        if (trafficLightManager != null) {
-            trafficLightManager.forceRed(trafficLightId);
-        }
-    }
+ /*
+  
 
     @Override
     public void checkAndHandleCongestion() {
@@ -556,7 +541,7 @@ public class SimulationEngine implements ISimulationEngine {
             // 2. Logic decision
             trafficLightManager.handleCongestion(infrastructureManager.getAllEdges());
         }
-    }  
+    } */ 
 
     // --- DEPENDENCY INJECTION ---
     public void setVehicleManager(IVehicleManager vm) { this.vehicleManager = vm; }

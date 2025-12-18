@@ -9,37 +9,51 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-import javafx.scene.transform.Affine;
 import java.awt.geom.Point2D;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
 
+/**
+ * MapView class responsible for rendering the simulation environment.
+ * It displays the infrastructure (roads, junctions), vehicles, and traffic lights.
+ * Provides zoom and pan functionality for better navigation.
+ */
 public class MapView extends Pane {
 
     private Canvas canvas;
     private ISimulationEngine engine;
     private IVehicleManager vehicleManager;
 
-    // Paramètres de vue
-    private double scale = 3.0; // Zoom par défaut plus grand pour voir les détails
+    // View parameters
+    private double scale = 3.0; // Default zoom level set higher to see details
     private double offsetX = 100;
     private double offsetY = 500; 
     private double lastMouseX, lastMouseY;
 
+    // Callback for vehicle selection
     private Consumer<String> onVehicleSelected;
 
+    /**
+     * Constructor for MapView.
+     * Initializes the canvas and sets up mouse event handlers.
+     * * @param engine The simulation engine interface.
+     * @param vm The vehicle manager interface.
+     */
     public MapView(ISimulationEngine engine, IVehicleManager vm) {
         this.engine = engine;
         this.vehicleManager = vm;
         
         this.canvas = new Canvas();
         getChildren().add(canvas);
-        // Liaison dynamique de la taille
+        
+        // Dynamically bind canvas size to the pane size
         canvas.widthProperty().bind(widthProperty());
         canvas.heightProperty().bind(heightProperty());
 
-        // --- GESTION SOURIS (Zoom & Pan) ---
+        // --- MOUSE HANDLING (Zoom & Pan) ---
+        
+        // Handle zooming with scroll wheel
         this.setOnScroll((ScrollEvent event) -> {
             double zoomFactor = 1.1;
             if (event.getDeltaY() < 0) zoomFactor = 1 / zoomFactor;
@@ -47,6 +61,7 @@ public class MapView extends Pane {
             render(); 
         });
 
+        // Handle vehicle selection on left click
         this.setOnMousePressed(e -> {
             lastMouseX = e.getX();
             lastMouseY = e.getY();
@@ -55,6 +70,7 @@ public class MapView extends Pane {
             }
         });
 
+        // Handle panning with right or middle mouse button
         this.setOnMouseDragged(e -> {
             if (e.getButton() == MouseButton.SECONDARY || e.getButton() == MouseButton.MIDDLE) {
                 double dx = e.getX() - lastMouseX;
@@ -67,25 +83,38 @@ public class MapView extends Pane {
             }
         });
         
-        // Fond sombre pour faire ressortir les feux
+        // Set dark background color for better contrast with lights
         setStyle("-fx-background-color: #1e1e1e;"); 
     }
     
+    /**
+     * Sets the callback to be triggered when a vehicle is selected.
+     * @param callback Consumer that accepts the vehicle ID.
+     */
     public void setOnVehicleSelected(Consumer<String> callback) {
         this.onVehicleSelected = callback;
     }
 
+    /**
+     * Handles the selection logic based on screen coordinates.
+     * Converts screen coordinates to simulation coordinates and queries the engine.
+     */
     private void handleSelection(double screenX, double screenY) {
         double simX = (screenX - offsetX) / scale;
         double simY = (offsetY - screenY) / scale; 
-        // Tolérance de clic de 10 mètres
+        
+        // Use a 10-meter tolerance for easier clicking
         String id = engine.getVehicleIdAtPosition(simX, simY, 10.0);
         if (id != null && onVehicleSelected != null) {
             onVehicleSelected.accept(id);
         }
     }
 
-    // --- RENDU PRINCIPAL ---
+    // --- MAIN RENDER LOOP ---
+    
+    /**
+     * Renders the entire scene: background, infrastructure, traffic lights, and vehicles.
+     */
     public void render() {
         if (getWidth() <= 0 || getHeight() <= 0) return;
 
@@ -93,19 +122,20 @@ public class MapView extends Pane {
         double w = getWidth();
         double h = getHeight();
 
-        // 1. Fond (Sol)
+        // 1. Background (Ground)
         gc.setFill(Color.web("#222222")); 
         gc.fillRect(0, 0, w, h);
 
         if (engine == null) return;
 
-        // 2. Infrastructure (Routes)
+        // 2. Infrastructure (Roads & Junctions)
         drawInfrastructure(gc);
 
-        // 3. Feux Tricolores (Sous les voitures ou dessus ? Dessus pour visibilité)
+        // 3. Traffic Lights (Drawn above roads but below vehicles for visibility - or above vehicles?)
+        // Currently drawing them before vehicles.
         drawDetailedTrafficLights(gc);
 
-        // 4. Véhicules
+        // 4. Vehicles
         if (vehicleManager != null) {
             Collection<IVehicle> vehicles = vehicleManager.getAllVehicles();
             for (IVehicle v : vehicles) {
@@ -114,27 +144,30 @@ public class MapView extends Pane {
         }
     }
     
+    /**
+     * Draws the road network including edges and junctions.
+     */
     private void drawInfrastructure(GraphicsContext gc) {
-        // Style Route : Asphalte foncé avec bordures
+        // Road style: Dark asphalt with borders
         gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
         
         List<String> edges = engine.getEdgeIdList();
         
-        // Bordure de route (Trottoir)
+        // Draw road borders (Sidewalks)
         gc.setLineWidth(7 * scale);
         gc.setStroke(Color.web("#444444"));
         for (String edgeId : edges) {
             drawPolyline(gc, engine.getEdgeShape(edgeId));
         }
 
-        // Bitume
+        // Draw Asphalt
         gc.setLineWidth(5 * scale);
         gc.setStroke(Color.web("#333333"));
         for (String edgeId : edges) {
             drawPolyline(gc, engine.getEdgeShape(edgeId));
         }
         
-        // Jonctions
+        // Draw Junctions
         gc.setFill(Color.web("#333333"));
         for (String jId : engine.getJunctionIdList()) {
             List<Point2D> shape = engine.getJunctionShape(jId);
@@ -143,41 +176,41 @@ public class MapView extends Pane {
             }
         }
 
-        // Lignes pointillées centrales
+        // Draw central lane markings (dashed lines)
         gc.setStroke(Color.web("#888888"));
         gc.setLineWidth(0.5 * scale); 
-        gc.setLineDashes(3 * scale); // Pointillés
+        gc.setLineDashes(3 * scale); // Dash pattern
         for (String edgeId : edges) {
             drawPolyline(gc, engine.getEdgeShape(edgeId));
         }
-        gc.setLineDashes(null); // Reset
+        gc.setLineDashes(null); // Reset dashes
     }
     
     /**
-     * DESSINE LES FEUX "SÉMAPHORES" (Boîtes avec 3 lumières)
+     * DRAWS "SEMAPHORE" STYLE TRAFFIC LIGHTS (Box with 3 lights)
+     * Iterates through controlled lanes to place lights correctly.
      */
     private void drawDetailedTrafficLights(GraphicsContext gc) {
         List<String> tlIds = engine.getTrafficLightIdList();
         if (tlIds == null) return;
 
         for (String tlId : tlIds) {
-            // Récupérer l'état global du feu (ex: "GGrrGGrr")
+            // Get global state string (e.g., "GGrrGGrr")
             String state = engine.getTrafficLightState(tlId);
-            // Récupérer les voies contrôlées (ex: ["E1_0", "E1_1", "E2_0"...])
+            // Get controlled lanes (e.g., ["E1_0", "E1_1", "E2_0"...])
             List<String> lanes = engine.getControlledLanes(tlId);
             
             if (lanes == null || lanes.isEmpty()) {
-                // Fallback : Dessiner un feu simple au centre si pas de détails de voies
+                // Fallback: Draw simple light at center if no lane details available
                 drawSimpleTrafficLight(gc, tlId);
                 continue;
             }
 
-            // Pour chaque voie entrante contrôlée, on dessine un feu au bout
+            // Draw a light at the end of each incoming controlled lane
             for (int i = 0; i < lanes.size(); i++) {
                 String laneId = lanes.get(i);
                 
-                // Déterminer la couleur pour CETTE voie spécifique
-                // Si la string d'état est assez longue, on prend le caractère correspondant
+                // Determine color for THIS specific lane
                 char signalChar = 'r';
                 if (state != null && i < state.length()) {
                     signalChar = state.charAt(i);
@@ -185,12 +218,9 @@ public class MapView extends Pane {
                     signalChar = state.charAt(0); // Fallback
                 }
 
-                // Récupérer la forme de la voie/route pour trouver la position et l'angle
-                // Note: SUMO expose souvent getEdgeShape. Si laneId est "edge_index", on prend l'edge.
-                // Ici on suppose que engine.getEdgeShape fonctionne avec l'ID complet ou on parse.
-                // Simplification : on tente de récupérer la shape via l'engine.
+                // Retrieve lane/edge shape to determine position and angle
                 String edgeId = laneId; 
-                // Si l'ID contient un underscore (ex: "E45_0"), c'est une voie, on prend l'edge parent "E45"
+                // If ID contains underscore (e.g., "E45_0"), it's a lane, get parent edge "E45"
                 if (laneId.contains("_")) {
                     edgeId = laneId.substring(0, laneId.lastIndexOf('_'));
                 }
@@ -198,63 +228,65 @@ public class MapView extends Pane {
                 List<Point2D> shape = engine.getEdgeShape(edgeId);
                 if (shape == null || shape.size() < 2) continue;
 
-                // Position : Le dernier point de la route (la ligne d'arrêt)
+                // Position: The last point of the road (the stop line)
                 Point2D pEnd = shape.get(shape.size() - 1);
                 Point2D pPrev = shape.get(shape.size() - 2);
 
-                // Calcul de l'angle de la route pour orienter le feu
+                // Calculate road angle to orient the traffic light
                 double dx = pEnd.getX() - pPrev.getX();
                 double dy = pEnd.getY() - pPrev.getY();
                 double angleRad = Math.atan2(dy, dx);
                 double angleDeg = Math.toDegrees(angleRad);
 
-                // Dessiner le boîtier sémaphore
+                // Draw the semaphore box
                 drawSemaphore(gc, pEnd.getX(), pEnd.getY(), angleDeg, signalChar);
             }
         }
     }
     
-    // Dessine un boîtier style "Réaliste"
+    /**
+     * Draws a realistic-style traffic light box.
+     */
     private void drawSemaphore(GraphicsContext gc, double simX, double simY, double angleDeg, char stateChar) {
         gc.save();
         
         double x = tx(simX);
         double y = ty(simY);
         
-        // 1. Se positionner au bout de la route
+        // 1. Position at the end of the road
         gc.translate(x, y);
-        // 2. Pivoter pour faire face à la route (angle de la route + 90° pour être sur le côté droit ?)
-        // On veut que le feu soit visible "face" au conducteur, donc perpendiculaire.
-        gc.rotate(-angleDeg); // Système coord JavaFX inverse Y souvent, ajuster si besoin
+        
+        // 2. Rotate to face the road (perpendicular to road axis)
+        // Adjust rotation as JavaFX coordinates might invert Y
+        gc.rotate(-angleDeg); 
         
         double boxW = 4 * scale;
         double boxH = 10 * scale;
         
-        // Décalage pour mettre le feu sur le trottoir à droite
+        // Offset to place the light on the right sidewalk
         double roadOffset = 6 * scale; 
         
-        // Dessiner le boîtier Noir
+        // Draw Black Box
         gc.setFill(Color.BLACK);
         gc.setStroke(Color.DARKGRAY);
         gc.setLineWidth(0.5);
         
-        // Position locale après rotation : décalé à droite (Y positif local) et reculé un peu (X négatif)
-        // Note: Dans le repère rotaté, X est l'axe de la route.
+        // Local position after rotation: shifted right (local Y+) and slightly back (local X-)
         gc.fillRect(0, roadOffset, boxW, boxH);
         gc.strokeRect(0, roadOffset, boxW, boxH);
         
-        // --- LES 3 LUMIÈRES ---
-        double r = 1.2 * scale; // Rayon lampe
+        // --- THE 3 LIGHTS ---
+        double r = 1.2 * scale; // Light radius
         double centerX = boxW / 2;
         double lightYStart = roadOffset + 2 * scale;
         double gap = 3 * scale;
 
-        // Couleurs par défaut (Eteintes)
+        // Default colors (Off state)
         Color cRed = Color.web("#330000");
         Color cYellow = Color.web("#333300");
         Color cGreen = Color.web("#003300");
 
-        // Effet Néon (Glow)
+        // Neon Glow effect
         Color glow = Color.TRANSPARENT;
 
         String s = String.valueOf(stateChar).toLowerCase();
@@ -270,28 +302,31 @@ public class MapView extends Pane {
             glow = Color.LIME;
         }
 
-        // Dessin Rouge (Haut)
+        // Draw Red (Top)
         drawLightBulb(gc, centerX, lightYStart, r, cRed, glow.equals(Color.RED));
-        // Dessin Jaune (Milieu)
+        // Draw Yellow (Middle)
         drawLightBulb(gc, centerX, lightYStart + gap, r, cYellow, glow.equals(Color.YELLOW));
-        // Dessin Vert (Bas)
+        // Draw Green (Bottom)
         drawLightBulb(gc, centerX, lightYStart + gap*2, r, cGreen, glow.equals(Color.LIME));
 
         gc.restore();
     }
     
+    /**
+     * Helper to draw a single light bulb with optional glow.
+     */
     private void drawLightBulb(GraphicsContext gc, double cx, double cy, double radius, Color c, boolean isOn) {
         gc.setFill(c);
         gc.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
         
         if (isOn) {
-            // Effet brillance centrale
+            // Center shine effect
             gc.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.5));
             gc.fillOval(cx - radius/2, cy - radius/2, radius, radius);
         }
     }
     
-    // Fallback pour les jonctions sans détails
+    // Fallback for junctions without lane details
     private void drawSimpleTrafficLight(GraphicsContext gc, String tlId) {
         Point2D pos = engine.getTrafficLightPosition(tlId);
         if (pos == null) return;
@@ -315,14 +350,15 @@ public class MapView extends Pane {
             }
         }
         
-        // Dessin voiture simple mais propre
+        // Simple but clean vehicle drawing
         gc.setFill(c);
         double w = 5 * scale;
         double l = 9 * scale;
         gc.fillRoundRect(x - w/2, y - l/2, w, l, 2, 2);
     }
     
-    // Utilitaires de transformation et dessin
+    // --- UTILITIES ---
+    
     private void drawPolyline(GraphicsContext gc, List<Point2D> points) {
         if (points == null || points.size() < 2) return;
         gc.beginPath();
@@ -343,6 +379,7 @@ public class MapView extends Pane {
         gc.fillPolygon(x, y, points.size());
     }
 
+    // Coordinate transformers
     private double tx(double val) { return val * scale + offsetX; }
     private double ty(double val) { return offsetY - (val * scale); }
 }

@@ -1,7 +1,8 @@
 package de.frauas.group6.traffic.simulator.view;
 
 	import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
-	import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
+import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	import javafx.application.Application;
 	import javafx.application.Platform;
 	import javafx.scene.Scene;
@@ -17,9 +18,11 @@ package de.frauas.group6.traffic.simulator.view;
 
 	    private static ISimulationEngine staticEngine;
 	    private static IVehicleManager staticVehicleManager; // Nécessaire pour le ControlPanel
+	    private static ITrafficLightManager staticInfrastrutureManager;
 	    
 	    private ISimulationEngine engine;
 	    private IVehicleManager vehicleManager;
+	    private ITrafficLightManager InfrastrutureManager;
 	    
 	    private MapView mapView;
 	    private ControlPanel controlPanel;
@@ -28,9 +31,10 @@ package de.frauas.group6.traffic.simulator.view;
 	    private VBox dashboardPlaceholder; 
 
 	    // Méthode statique pour lancer l'UI depuis le Main
-	    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance) {
+	    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager InfrastrutureManager) {
 	        staticEngine = engineInstance;
 	        staticVehicleManager = vmInstance;
+	        staticInfrastrutureManager =  InfrastrutureManager;
 	        new Thread(() -> Application.launch(GuiManager.class)).start();
 	    }
 
@@ -38,6 +42,7 @@ package de.frauas.group6.traffic.simulator.view;
 	    public void start(Stage primaryStage) {
 	        this.engine = staticEngine;
 	        this.vehicleManager = staticVehicleManager;
+	        this.InfrastrutureManager = staticInfrastrutureManager;
 	        
 	        BorderPane root = new BorderPane();
 	        
@@ -52,7 +57,7 @@ package de.frauas.group6.traffic.simulator.view;
 	        sidebar.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #cccccc; -fx-border-width: 0 0 0 1;");
 	        
 	        // A. Ton ControlPanel
-	        this.controlPanel = new ControlPanel(engine, vehicleManager);
+	        this.controlPanel = new ControlPanel(engine, vehicleManager,InfrastrutureManager);
 	        
 	        // B. Le Dashboard de ton collègue (Placeholder)
 	        this.dashboardPlaceholder = new VBox();

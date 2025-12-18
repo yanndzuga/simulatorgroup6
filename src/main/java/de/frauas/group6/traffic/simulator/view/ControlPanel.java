@@ -3,7 +3,8 @@ package de.frauas.group6.traffic.simulator.view;
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicle;
-import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager; 
+import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -16,14 +17,20 @@ import javafx.scene.text.FontWeight;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * ControlPanel class providing UI controls for simulation management.
+ * Allows users to control simulation flow, inject/modify vehicles, and control traffic lights.
+ */
 public class ControlPanel extends VBox {
 
     private ISimulationEngine engine;
     private IVehicleManager vehicleManager;
     private ITrafficLightManager trafficLightManager;
     
-    // Callback pour demander à la vue (MapView) de se rafraîchir immédiatement
+    // Callback to request immediate refresh of the view (MapView)
     private Runnable onRefreshRequest;
+    
+   
     
     // --- UI Components ---
     
@@ -44,24 +51,32 @@ public class ControlPanel extends VBox {
     
     // Global
     private Label lblTime;
+    
+    
 
-    public ControlPanel(ISimulationEngine engine, IVehicleManager vm) {
+    /**
+     * Constructor for ControlPanel.
+     * Initializes the UI layout and binds event handlers.
+     */
+    public ControlPanel(ISimulationEngine engine, IVehicleManager vm, ITrafficLightManager tm) {
         this.engine = engine;
         this.vehicleManager = vm;
+        this.trafficLightManager = tm;
         initializeUI();
     }
     
-    // Injection des dépendances optionnelles
-    public void setTrafficLightManager(ITrafficLightManager tm) {
-        this.trafficLightManager = tm;
-    }
+ 
     
+    /**
+     * Sets the callback to trigger a view refresh.
+     * @param callback Runnable to execute.
+     */
     public void setOnRefreshRequest(Runnable callback) {
         this.onRefreshRequest = callback;
     }
 
     private void initializeUI() {
-        // Style Global Dark Theme
+        // Global Dark Theme Style
         this.setStyle("-fx-background-color: linear-gradient(to bottom, #2b2b2b, #1a1a1a); -fx-border-color: #444; -fx-border-width: 0 2 0 0;");
         setPadding(new Insets(20));
         setSpacing(15);
@@ -100,7 +115,7 @@ public class ControlPanel extends VBox {
         txtSelectedId = new TextField(); 
         txtSelectedId.setPromptText("Vehicle ID"); 
         txtSelectedId.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-prompt-text-fill: #888;");
-        txtSelectedId.setDisable(true); 
+        txtSelectedId.setDisable(true); // Read-only, filled by map click
         
         cbRoute = createStyledCombo("Route");
         cbRoute.getItems().addAll("-E48","E45","E46","E50","E49","-E51"); 
@@ -118,12 +133,12 @@ public class ControlPanel extends VBox {
         cbColor.getItems().addAll("Rot", "Green", "Yellow");
         cbColor.getSelectionModel().select(0);
         
-        sliderSpeed = new Slider(0, 50, 15);
+        sliderSpeed = new Slider(0, 60, 15);
         Label lblSpeed = new Label("Speed: 15.0 m/s");
         lblSpeed.setTextFill(Color.LIGHTGRAY);
         sliderSpeed.valueProperty().addListener((o,old,val) -> lblSpeed.setText(String.format("Speed: %.1f m/s", val.doubleValue())));
         
-        spinnerCount = new Spinner<>(1, 10, 1);
+        spinnerCount = new Spinner<>(1, 100, 1);
         spinnerCount.setStyle("-fx-body-color: #444; -fx-text-fill: white;");
         spinnerCount.setMaxWidth(Double.MAX_VALUE);
         
@@ -170,7 +185,7 @@ public class ControlPanel extends VBox {
         
         getChildren().addAll(header, lblTime, vehicleCard, tlCard);
         
-        // Setup Logic
+        // Setup Logic Handlers
         setupVehicleHandlers(btnCreate, btnModify, btnDelete);
         setupTrafficLightHandlers(btnGreen, btnRed);
     }
@@ -178,8 +193,9 @@ public class ControlPanel extends VBox {
     // --- PUBLIC INTERACTION METHODS ---
     
     /**
-     * Appelé quand on clique sur un véhicule dans la MapView.
-     * Remplit le formulaire avec les données du véhicule.
+     * Called when a vehicle is clicked in the MapView.
+     * Populates the form fields with the vehicle's data.
+     * @param id The ID of the selected vehicle.
      */
     public void selectVehicle(String id) {
         if (vehicleManager == null || id == null) return;
@@ -207,18 +223,23 @@ public class ControlPanel extends VBox {
     }
     
     /**
-     * Appelé par la boucle de jeu principale pour mettre à jour les infos temps réel (Temps, Feux).
+     * Called by the main game loop to update real-time info (Time, Light status).
      */
     public void updateRealTimeData() {
         if(engine == null) return;
         lblTime.setText(String.format("TIME: %.2f s", engine.getCurrentSimulationTime()));
-        updateInfo(); // Mise à jour des infos Traffic Light sélectionné
+        updateInfo(); // Update Traffic Light info
+        
+        if (cbTrafficLight.getItems().isEmpty()) {
+            List<String> ids = engine.getTrafficLightIdList();
+            if(ids != null) cbTrafficLight.getItems().setAll(ids);
+       }
     }
     
     // --- INTERNAL HANDLERS ---
     
     private void setupVehicleHandlers(Button create, Button mod, Button del) {
-        // INJECT (Création)
+        // INJECT Handler
         create.setOnAction(e -> {
             try {
                 if (vehicleManager != null) {
@@ -227,24 +248,24 @@ public class ControlPanel extends VBox {
             } catch(Exception ex) { ex.printStackTrace(); }
         });
         
-        // DELETE (Suppression)
+        // DELETE Handler
         del.setOnAction(e -> {
             try { if (vehicleManager!=null) {
-                // Utilisation correcte de la quantité du spinner
+                // Correctly use the spinner value for quantity
                 vehicleManager.deleteVehicle(cbRoute.getValue(), cbColor.getValue(), sliderSpeed.getValue(), spinnerCount.getValue());
                 txtSelectedId.clear();
             }} catch(Exception ex) {}
         });
         
-        // UPDATE (Modification)
+        // UPDATE Handler
         mod.setOnAction(e -> {
-            // Sécurité : Simulation en PAUSE requise
+            // Safety Check: Simulation must be PAUSED
             if (engine != null && !engine.isPaused()) {
-                System.out.println("Action refusée : Veuillez mettre la simulation en PAUSE.");
+                System.out.println("Action denied: Please PAUSE the simulation.");
                 Alert alert = new Alert(Alert.AlertType.WARNING);
-                alert.setTitle("Simulation en cours");
+                alert.setTitle("Simulation Running");
                 alert.setHeaderText(null);
-                alert.setContentText("Vous devez mettre la simulation en PAUSE pour modifier un véhicule !");
+                alert.setContentText("You must PAUSE the simulation to modify a vehicle!");
                 alert.showAndWait();
                 return;
             }
@@ -255,14 +276,14 @@ public class ControlPanel extends VBox {
             try { 
                 if(vehicleManager != null) {
                     vehicleManager.modifyVehicle(id, cbColor.getValue(), sliderSpeed.getValue());
-                    System.out.println("Véhicule " + id + " modifié.");
+                    System.out.println("Vehicle " + id + " modified.");
                     
-                    // Rafraîchissement immédiat de la vue
+                    // Immediate view refresh
                     if (onRefreshRequest != null) onRefreshRequest.run();
                 }
             } catch(Exception ex) {
                 Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle("Erreur");
+                alert.setTitle("Error");
                 alert.setContentText(ex.getMessage());
                 alert.showAndWait();
             }
@@ -270,7 +291,7 @@ public class ControlPanel extends VBox {
     }
     
     private void setupTrafficLightHandlers(Button btnGreen, Button btnRed) {
-        // Rafraîchir la liste des feux si on clique sur la combobox
+        // Refresh traffic light list on click
         cbTrafficLight.setOnMouseClicked(e -> {
             if(engine==null) return;
             List<String> ids = engine.getTrafficLightIdList();
@@ -284,7 +305,7 @@ public class ControlPanel extends VBox {
             String id = cbTrafficLight.getValue();
             if (id == null) return;
             
-            // Logique intelligente ou fallback
+            // Smart Logic or Fallback
             if (trafficLightManager != null) {
                 trafficLightManager.forceGreen(id);
             } else if (engine != null) {
@@ -292,7 +313,7 @@ public class ControlPanel extends VBox {
             }
             
             updateInfo();
-            // Rafraîchissement immédiat de la vue
+            // Immediate view refresh
             if (onRefreshRequest != null) onRefreshRequest.run();
         });
         
@@ -308,7 +329,7 @@ public class ControlPanel extends VBox {
             }
             
             updateInfo();
-            // Rafraîchissement immédiat de la vue
+            // Immediate view refresh
             if (onRefreshRequest != null) onRefreshRequest.run();
         });
     }
@@ -319,15 +340,15 @@ public class ControlPanel extends VBox {
         
         try {
             String state = engine.getTrafficLightState(id);
-            // Conversion double pour les décimales
+            // Double conversion for decimals
             double timeLeft = engine.getTrafficLightRemainingTime(id) / 1000.0;
             
             lblTlState.setText("Phase: " + engine.getTrafficLightPhase(id) + " (" + state + ")");
             lblPhaseTime.setText(String.format("Remaining: %.1f s", timeLeft));
             
-            if(state.toLowerCase().contains("g")) indicatorLight.setFill(Color.LIME);
-            else if(state.toLowerCase().contains("y")) indicatorLight.setFill(Color.ORANGE);
-            else indicatorLight.setFill(Color.RED);
+            if(engine.getTrafficLightPhase(id)== 0 || engine.getTrafficLightPhase(id)==4 ) indicatorLight.setFill(Color.LIME);
+            else if(engine.getTrafficLightPhase(id)==2) indicatorLight.setFill(Color.RED);
+            else indicatorLight.setFill(Color.ORANGE);
             
         } catch(Exception e) {}
     }

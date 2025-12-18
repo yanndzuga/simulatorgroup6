@@ -39,9 +39,9 @@ public interface ISimulationEngine {
     void setTrafficLightDuration(String tlId, int durationSeconds);
 
     // --- Advanced Traffic Control (Milestone 2 Features) ---
-    void forceGreenWave(String trafficLightId);
+   /* void forceGreenWave(String trafficLightId);
     void forceRedStop(String trafficLightId);
-    void checkAndHandleCongestion();
+    void checkAndHandleCongestion();*/
 
     // --- Junctions ---
     List<Point2D> getJunctionShape(String junctionId);
