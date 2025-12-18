@@ -31,10 +31,10 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	    private VBox dashboardPlaceholder; 
 
 	    // Méthode statique pour lancer l'UI depuis le Main
-	    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager InfrastrutureManager) {
+	    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager TrafficLightManager) {
 	        staticEngine = engineInstance;
 	        staticVehicleManager = vmInstance;
-	        staticTrafficLightManage =  InfrastrutureManager;
+	        staticTrafficLightManage =  TrafficLightManager;
 	        new Thread(() -> Application.launch(GuiManager.class)).start();
 	    }
 
