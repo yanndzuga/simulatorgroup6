@@ -1,54 +1,79 @@
 package de.frauas.group6.traffic.simulator.core;
 
-import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+import de.frauas.group6.traffic.simulator.infrastructure.TrafficLightManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
-import de.frauas.group6.traffic.simulator.view.IMapObserver;
+import de.frauas.group6.traffic.simulator.vehicles.VehicleManager;
+import de.frauas.group6.traffic.simulator.view.GuiManager;
 
-// NOTE: Ideally, import the concrete implementations from other packages
-// import vehicles.VehicleManager;
-// import infrastructure.TrafficLightManager;
-// import view.MapCanvas;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * ENTRY POINT
- * This class is responsible for bootstrapping the application.
+ * This class orchestrates the application startup:
+ * 1. Initializes the Core Engine
+ * 2. Creates the Managers (Components)
+ * 3. Wires dependencies (Dependency Injection)
+ * 4. Launches the GUI
  */
 public class App {
 
+    private static final Logger LOGGER = Logger.getLogger(App.class.getName());
+
     public static void main(String[] args) {
-        System.out.println(">>> Initializing Traffic Simulation System...");
+        LOGGER.info(">>> Initializing Traffic Simulation System...");
 
-        // 1. Create the Core Engine
-        SimulationEngine engine = new SimulationEngine();
-
-        // 2. Create the Components (Members 2, 3, 4, 5)
-        
-        IStatsCollector statsCollector = null; // statsCollector = new StatsCollector(engine);
-        IVehicleManager vehicleMgr = null; // vehicleMgr = new VehicleManager(engine);
-        ITrafficLightManager lightMgr = null; // lightMgr = new TrafficLightManager(engine);
-        IMapObserver mapView = null; // mapView = new MapCanvas(engine, statsCollector);
-
-        // 3. Dependency Injection (Wiring everything together)
-        // This is why we need Setters in SimulationEngine!
-        engine.setVehicleManager(vehicleMgr);
-        engine.setTrafficLightManager(lightMgr);
-        engine.setMapObserver(mapView);
-
-        // 4. Initialize SUMO Connection
         try {
-            engine.initialize();
+            // ------------------------------------------------------------
+            // 1. Create the Core Engine
+            // ------------------------------------------------------------
+            SimulationEngine engine = new SimulationEngine();
+
+            // ------------------------------------------------------------
+            // 2. Create the Component Managers
+            // ------------------------------------------------------------
+            // Member 2: Vehicles
+            IVehicleManager vehicleMgr = new VehicleManager(engine);
             
-            // 5. Start the Loop
+            // Member 3: Infrastructure (Traffic Lights) - Placeholder if not ready
+            ITrafficLightManager lightMgr = new TrafficLightManager(engine);
+            
+            
+            
+            // Member 5: Stats - Placeholder if not ready
+            // IStatsCollector statsCollector = new StatsCollector(engine);
+
+            // ------------------------------------------------------------
+            // 3. Dependency Injection (Wiring)
+            // ------------------------------------------------------------
+            engine.setVehicleManager(vehicleMgr);
+            engine.setTrafficLightManager(lightMgr);
+         
+            // engine.setStatsCollector(statsCollector);
+
+            // ------------------------------------------------------------
+            // 4. Initialize SUMO Connection
+            // ------------------------------------------------------------
+            // This is a blocking call that ensures TraCI is connected before GUI starts
+            engine.initialize();
+
+            // ------------------------------------------------------------
+            // 5. Start User Interface (View - Member 4)
+            // ------------------------------------------------------------
+            // Passes the engine and managers to the GUI so controls can work immediately
+            GuiManager.startUI(engine, vehicleMgr,lightMgr);
+
+            // ------------------------------------------------------------
+            // 6. Start the Simulation Loop
+            // ------------------------------------------------------------
             engine.start();
             
-            System.out.println(">>> System running. Close the GUI window to stop.");
-            
-        } catch (RuntimeException e) {
-            System.err.println("CRITICAL FAILURE: " + e.getMessage());
-            e.printStackTrace();
+            LOGGER.info(">>> System running. Close the GUI window to exit.");
+
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE, "CRITICAL FAILURE: Could not start application.", e);
+            System.exit(1); // Non-zero exit code indicates failure
         }
     }
 }
-
-

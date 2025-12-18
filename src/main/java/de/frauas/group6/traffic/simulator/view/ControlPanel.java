@@ -1,256 +1,396 @@
 package de.frauas.group6.traffic.simulator.view;
 
-import javafx.scene.layout.VBox;
+import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
+import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
+import de.frauas.group6.traffic.simulator.vehicles.IVehicle;
+import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
-import javafx.scene.control.Separator;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextField;
-import javafx.scene.control.ComboBox;
-import javafx.scene.layout.ColumnConstraints;
-import javafx.scene.layout.GridPane;
-import javafx.scene.text.Font;
 import javafx.geometry.Pos;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
+import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import java.util.List;
+import java.util.Optional;
 
+/**
+ * ControlPanel class providing UI controls for simulation management.
+ * Allows users to control simulation flow, inject/modify vehicles, and control traffic lights.
+ */
 public class ControlPanel extends VBox {
+
+    private ISimulationEngine engine;
+    private IVehicleManager vehicleManager;
+    private ITrafficLightManager trafficLightManager;
     
-    private SimulationController controller;
+    // Callback to request immediate refresh of the view (MapView)
+    private Runnable onRefreshRequest;
     
-    public ControlPanel(SimulationController controller) { 
-        this.controller = controller;
-        
-        // --- General Layout Settings ---
-        this.setPadding(new Insets(10)); 
-        this.setSpacing(15); 
-        this.setStyle("-fx-background-color:#555555; -fx-border-color: black;"); 
-        this.setPrefWidth(340); // Standard width
-        
-        // Try to load CSS
-        try {
-            this.getStylesheets().add(getClass().getResource("dark_style.css").toExternalForm());
-        } catch (Exception e) {
-            System.out.println("Warning: CSS file not found.");
-        }
+   
+    
+    // --- UI Components ---
+    
+    // Vehicle Section
+    private TextField txtSelectedId;
+    private ComboBox<String> cbRoute; 
+    private ComboBox<String> cbLane;    
+    private ComboBox<String> cbType;    
+    private ComboBox<String> cbColor;   
+    private Slider sliderSpeed;
+    private Spinner<Integer> spinnerCount;
+    
+    // Traffic Light Section
+    private ComboBox<String> cbTrafficLight;
+    private Label lblTlState;
+    private Circle indicatorLight;
+    private Label lblPhaseTime;
+    
+    // Global
+    private Label lblTime;
+    
+    
 
-        this.setAlignment(Pos.TOP_CENTER);
-        
-        // --- Header ---
-        Label titleLabel = new Label("Simulation Control");
-        titleLabel.setFont(new Font("Arial Bold", 20));
-        titleLabel.setStyle("-fx-text-fill: white;");
-        this.getChildren().addAll(titleLabel, new Separator());
-        
-        // --- Main Buttons (Start/Pause/Step) ---
-        HBox buttonBox = new HBox(10);
-        buttonBox.setAlignment(Pos.CENTER);
-        
-        Button startButton = new Button("Start");
-        startButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
-        startButton.setOnAction(e -> controller.startSimulation());
-        
-        Button pauseButton = new Button("Pause");
-        pauseButton.setStyle("-fx-background-color: #FFC107; -fx-text-fill: black;");
-        pauseButton.setOnAction(e -> controller.pauseSimulation());
-        
-        Button stepButton = new Button("Step");
-        stepButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
-        stepButton.setOnAction(e -> controller.singleStep());
-        
-        buttonBox.getChildren().addAll(startButton, pauseButton, stepButton);
-        this.getChildren().add(buttonBox);
-        this.getChildren().add(new Separator());
-        
-        // ============================================================
-        // 🚗 SECTION 1: CAR MANAGEMENT
-        // ============================================================
-        Label carManagementLabel = new Label("🚗 Car Management"); 
-        carManagementLabel.setFont(new Font("Arial Bold", 16));
-        carManagementLabel.setStyle("-fx-text-fill: white;"); 
-        this.getChildren().add(carManagementLabel);
-        
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        ColumnConstraints col0 = new ColumnConstraints(); col0.setPercentWidth(35);
-        ColumnConstraints col1 = new ColumnConstraints(); col1.setPercentWidth(25);
-        ColumnConstraints col2 = new ColumnConstraints(); col2.setPercentWidth(40); col2.setHgrow(Priority.ALWAYS);
-        grid.getColumnConstraints().addAll(col0, col1, col2);
-        
-        // Vehicle Inputs
-        ComboBox<String> edgeBox = new ComboBox<>(); 
-        edgeBox.getItems().addAll("-E48", "E45", "E46", "E50", "E49", "-E51");
-        edgeBox.getSelectionModel().selectFirst();
-        grid.add(new Label("Edge ID:"), 1, 0); grid.add(edgeBox, 2, 0);
-        
-        ComboBox<String> laneBox = new ComboBox<>();
-        laneBox.getItems().addAll("Right", "Left");
-        laneBox.getSelectionModel().selectFirst();
-        grid.add(new Label("Lane:"), 1, 1); grid.add(laneBox, 2, 1);
-        
-        // Update Lane logic based on Edge
-        edgeBox.setOnAction(e -> { 
-            laneBox.getItems().clear(); 
-            if (edgeBox.getValue().equals("E45")) { laneBox.getItems().addAll("Right", "Middle", "Left"); } 
-            else { laneBox.getItems().addAll("Right", "Left"); }
-            laneBox.getSelectionModel().selectFirst(); 
-        });
-        
-        ComboBox<String> typeBox = new ComboBox<>();
-        typeBox.getItems().addAll("Standard-Car", "Truck", "Emergency-Vehicle", "City-Bus");
-        typeBox.getSelectionModel().selectFirst();
-        grid.add(new Label("Type:"), 1, 2); grid.add(typeBox, 2, 2);
-        
-        ComboBox<String> colorBox = new ComboBox<>();
-        colorBox.getItems().addAll("Yellow", "Rot", "Green");
-        colorBox.getSelectionModel().selectFirst();
-        grid.add(new Label("Color:"), 1, 3); grid.add(colorBox, 2, 3);
-        
-        TextField speedField = new TextField("50");
-        grid.add(new Label("Speed:"), 1, 4); grid.add(speedField, 2, 4);
-        
-        TextField countField = new TextField("1");
-        grid.add(new Label("Count:"), 1, 5); grid.add(countField, 2, 5);
-        
-        TextField vehicleIdField = new TextField(""); 
-        vehicleIdField.setPromptText("(for modify)");
-        grid.add(new Label("Vehicle ID:"), 1, 6); grid.add(vehicleIdField, 2, 6);
-        
-        // Vehicle Actions
-        Button spawnButton = new Button("Spawn Car");
-        spawnButton.setStyle("-fx-background-color: #00897B; -fx-text-fill: white;");
-        spawnButton.setMaxWidth(Double.MAX_VALUE);
-        spawnButton.setOnAction(e -> {
-            try { controller.spawnCar(edgeBox.getValue(), laneBox.getValue(), typeBox.getValue(), colorBox.getValue(), Integer.parseInt(countField.getText()), Double.parseDouble(speedField.getText())); }
-            catch(Exception ex) { showAlert("Spawn Failed", ex.getMessage()); }
-        });
-        
-        Button removeButton = new Button("Remove Car(s)");
-        removeButton.setStyle("-fx-background-color: #D32F2F; -fx-text-fill: white;");
-        removeButton.setMaxWidth(Double.MAX_VALUE);
-        removeButton.setOnAction(e -> {
-            try { controller.removeCar(edgeBox.getValue(), colorBox.getValue(), Double.parseDouble(speedField.getText()), Integer.parseInt(countField.getText())); }
-            catch(Exception ex) { showAlert("Remove Failed", ex.getMessage()); }
-        });
-        
-        Button modifyButton = new Button("Modify Vehicle");
-        modifyButton.setStyle("-fx-background-color: #673AB7; -fx-text-fill: white;");
-        modifyButton.setMaxWidth(Double.MAX_VALUE);
-        modifyButton.setOnAction(e -> {
-            try { controller.modifyVehicle(vehicleIdField.getText(), colorBox.getValue(), Double.parseDouble(speedField.getText())); } 
-            catch (Exception ex) { showAlert("Modify Failed", ex.getMessage()); }
-        });
-        
-        grid.add(spawnButton, 0, 2); 
-        grid.add(removeButton, 0, 3); 
-        grid.add(modifyButton, 0, 4);
-        
-        this.getChildren().add(grid);
-
-        // ============================================================
-        // 🚦 SECTION 2: TRAFFIC LIGHT CONTROL
-        // ============================================================
-        
-        this.getChildren().add(new Separator());
-
-        Label trafficLabel = new Label("🚦 Traffic Light Control");
-        trafficLabel.setFont(new Font("Arial Bold", 16));
-        trafficLabel.setStyle("-fx-text-fill: white;");
-        this.getChildren().add(trafficLabel);
-
-        GridPane trafficGrid = new GridPane();
-        trafficGrid.setHgap(10);
-        trafficGrid.setVgap(10);
-        trafficGrid.getColumnConstraints().addAll(col0, col1, col2);
-
-        // 1. Selection Box
-        ComboBox<String> trafficLightBox = new ComboBox<>();
-        trafficLightBox.setPromptText("Select...");
-        trafficLightBox.setPrefWidth(220); 
-        trafficLightBox.setStyle("-fx-font-size: 10px; -fx-text-fill: white; -fx-background-color: #444;"); 
-        
-        // 2. Refresh Button
-        Button refreshListBtn = new Button("↻");
-        refreshListBtn.setMinWidth(40); 
-        refreshListBtn.setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-font-size: 14px;");
-        
-        refreshListBtn.setOnAction(e -> {
-            if (controller == null) return;
-            java.util.List<String> ids = controller.getTrafficLightIds();
-            trafficLightBox.getItems().clear();
-            
-            if (ids != null && !ids.isEmpty()) {
-                 trafficLightBox.getItems().addAll(ids);
-                 trafficLightBox.getSelectionModel().selectFirst();
-            } else {
-                 System.out.println("Info: No Traffic Lights found on current map.");
-                 trafficLightBox.setPromptText("No Lights Found");
-            }
-        });
-
-        // 3. Status Info Label & Button
-        Label statusLabel = new Label("Status: --");
-        statusLabel.setStyle("-fx-text-fill: #FFA726; -fx-font-size: 11px; -fx-font-weight: bold;");
-        
-        Button checkStatusBtn = new Button("Check Info");
-        checkStatusBtn.setStyle("-fx-background-color: #008CBA; -fx-text-fill: white; -fx-font-size: 10px;");
-        checkStatusBtn.setMaxWidth(Double.MAX_VALUE);
-        
-        checkStatusBtn.setOnAction(e -> {
-            String selected = trafficLightBox.getValue();
-            if (selected != null) {
-                // Fetch info from controller
-                String info = controller.getTrafficLightInfo(selected); 
-                statusLabel.setText(info); 
-            } else {
-                statusLabel.setText("Select ID first!");
-            }
-        });
-
-        // Add to Layout
-        trafficGrid.add(new Label("TL ID:"), 1, 0);
-        HBox tlBox = new HBox(5);
-        tlBox.getChildren().addAll(trafficLightBox, refreshListBtn);
-        trafficGrid.add(tlBox, 2, 0);
-        
-        trafficGrid.add(checkStatusBtn, 0, 1); 
-        trafficGrid.add(statusLabel, 1, 1, 2, 1); 
-
-        // 4. Force Control Buttons
-        Button btnForceGreen = new Button("FORCE GREEN");
-        btnForceGreen.setStyle("-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
-        btnForceGreen.setMaxWidth(Double.MAX_VALUE);
-        
-        Button btnForceRed = new Button("FORCE RED");
-        btnForceRed.setStyle("-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px;");
-        btnForceRed.setMaxWidth(Double.MAX_VALUE);
-
-        btnForceGreen.setOnAction(e -> {
-            String selected = trafficLightBox.getValue();
-            if (selected != null) controller.forceGreen(selected);
-            else showAlert("Selection Error", "Please select a Traffic Light first!");
-        });
-
-        btnForceRed.setOnAction(e -> {
-            String selected = trafficLightBox.getValue();
-            if (selected != null) controller.forceRed(selected);
-            else showAlert("Selection Error", "Please select a Traffic Light first!");
-        });
-
-        trafficGrid.add(btnForceGreen, 0, 2, 3, 1);
-        trafficGrid.add(btnForceRed, 0, 3, 3, 1);
-        
-        this.getChildren().add(trafficGrid);
+    /**
+     * Constructor for ControlPanel.
+     * Initializes the UI layout and binds event handlers.
+     */
+    public ControlPanel(ISimulationEngine engine, IVehicleManager vm, ITrafficLightManager tm) {
+        this.engine = engine;
+        this.vehicleManager = vm;
+        this.trafficLightManager = tm;
+        initializeUI();
     }
     
-    // Alert Helper
-    private void showAlert(String header, String content) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("Error");
-        alert.setHeaderText(header);
-        alert.setContentText(content);
-        alert.showAndWait();
+ 
+    
+    /**
+     * Sets the callback to trigger a view refresh.
+     * @param callback Runnable to execute.
+     */
+    public void setOnRefreshRequest(Runnable callback) {
+        this.onRefreshRequest = callback;
+    }
+
+    private void initializeUI() {
+        // Global Dark Theme Style
+        this.setStyle("-fx-background-color: linear-gradient(to bottom, #2b2b2b, #1a1a1a); -fx-border-color: #444; -fx-border-width: 0 2 0 0;");
+        setPadding(new Insets(20));
+        setSpacing(15);
+        setAlignment(Pos.TOP_CENTER);
+        setPrefWidth(350);
+        
+        // --- HEADER (Simulation Controls) ---
+        HBox header = new HBox(12);
+        header.setAlignment(Pos.CENTER);
+        Button btnPlay = createIconBtn("▶", Color.LIGHTGREEN);
+        Button btnPause = createIconBtn("⏸", Color.ORANGE);
+        Button btnStep = createIconBtn("⏯", Color.LIGHTBLUE);
+        
+        btnPlay.setOnAction(e -> { if(engine!=null) { if(engine.isPaused()) engine.resume(); else engine.start(); }});
+        btnPause.setOnAction(e -> { if(engine!=null) engine.pause(); });
+        btnStep.setOnAction(e -> { if(engine!=null) engine.step(); });
+        
+        header.getChildren().addAll(btnPlay, btnPause, btnStep);
+        
+        lblTime = new Label("TIME: 0.00 s");
+        lblTime.setTextFill(Color.WHITE);
+        lblTime.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        
+        // --- VEHICLE CONTROL CARD ---
+        VBox vehicleCard = createCard("VEHICLE CONTROL");
+        
+        // Action Buttons
+        HBox actions = new HBox(8);
+        actions.setAlignment(Pos.CENTER);
+        Button btnCreate = createFlatBtn("INJECT", "#4CAF50");
+        Button btnModify = createFlatBtn("UPDATE", "#2196F3");
+        Button btnDelete = createFlatBtn("DELETE", "#F44336");
+        actions.getChildren().addAll(btnCreate, btnModify, btnDelete);
+        
+        // Inputs
+        txtSelectedId = new TextField(); 
+        txtSelectedId.setPromptText("Vehicle ID"); 
+        txtSelectedId.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-prompt-text-fill: #888;");
+        txtSelectedId.setDisable(true); // Read-only, filled by map click
+        
+        cbRoute = createStyledCombo("Route");
+        cbRoute.getItems().addAll("-E48","E45","E46","E50","E49","-E51"); 
+        cbRoute.getSelectionModel().select(0);
+        
+        cbLane = createStyledCombo("Lane");
+        cbLane.getItems().addAll("Right", "middle", "Left"); 
+        cbLane.getSelectionModel().select(0);
+        
+        cbType = createStyledCombo("Type");
+        cbType.getItems().addAll("Standard-Car", "Truck", "Emergency-Vehicle", "City-Bus");
+        cbType.getSelectionModel().select(0);
+        
+        cbColor = createStyledCombo("Color");
+        cbColor.getItems().addAll("Rot", "Green", "Yellow");
+        cbColor.getSelectionModel().select(0);
+        
+        sliderSpeed = new Slider(0, 60, 15);
+        Label lblSpeed = new Label("Speed: 15.0 m/s");
+        lblSpeed.setTextFill(Color.LIGHTGRAY);
+        sliderSpeed.valueProperty().addListener((o,old,val) -> lblSpeed.setText(String.format("Speed: %.1f m/s", val.doubleValue())));
+        
+        spinnerCount = new Spinner<>(1, 100, 1);
+        spinnerCount.setStyle("-fx-body-color: #444; -fx-text-fill: white;");
+        spinnerCount.setMaxWidth(Double.MAX_VALUE);
+        
+        vehicleCard.getChildren().addAll(
+            actions, 
+            new Separator(), 
+            createLabel("Selected ID:"), txtSelectedId,
+            createLabel("Parameters:"), cbRoute, cbLane, cbType, cbColor,
+            lblSpeed, sliderSpeed,
+            createLabel("Quantity:"), spinnerCount
+        );
+        
+        // --- TRAFFIC LIGHT CONTROL CARD ---
+        VBox tlCard = createCard("TRAFFIC LIGHTS");
+        
+        cbTrafficLight = createStyledCombo("Select Junction");
+        
+        HBox statusRow = new HBox(15);
+        statusRow.setAlignment(Pos.CENTER_LEFT);
+        indicatorLight = new Circle(10, Color.web("#333"));
+        indicatorLight.setStroke(Color.GRAY);
+        lblTlState = new Label("State: --");
+        lblTlState.setTextFill(Color.WHITE);
+        lblTlState.setFont(Font.font("System", FontWeight.BOLD, 13));
+        statusRow.getChildren().addAll(indicatorLight, lblTlState);
+        
+        lblPhaseTime = new Label("Remaining: -- s");
+        lblPhaseTime.setTextFill(Color.LIGHTGRAY);
+        
+        HBox smartBtns = new HBox(10);
+        smartBtns.setAlignment(Pos.CENTER);
+        Button btnGreen = createFlatBtn("FORCE GREEN", "#00E676");
+        Button btnRed = createFlatBtn("FORCE RED", "#FF1744");
+        btnGreen.setPrefWidth(120);
+        btnRed.setPrefWidth(120);
+        smartBtns.getChildren().addAll(btnGreen, btnRed);
+        
+        tlCard.getChildren().addAll(
+            createLabel("Junction:"), cbTrafficLight,
+            statusRow, lblPhaseTime,
+            new Separator(),
+            createLabel("Override Logic:"), smartBtns
+        );
+        
+        getChildren().addAll(header, lblTime, vehicleCard, tlCard);
+        
+        // Setup Logic Handlers
+        setupVehicleHandlers(btnCreate, btnModify, btnDelete);
+        setupTrafficLightHandlers(btnGreen, btnRed);
+    }
+    
+    // --- PUBLIC INTERACTION METHODS ---
+    
+    /**
+     * Called when a vehicle is clicked in the MapView.
+     * Populates the form fields with the vehicle's data.
+     * @param id The ID of the selected vehicle.
+     */
+    public void selectVehicle(String id) {
+        if (vehicleManager == null || id == null) return;
+        
+        txtSelectedId.setText(id);
+        
+        Optional<IVehicle> vOpt = vehicleManager.getAllVehicles().stream()
+                .filter(v -> v.getId().equals(id))
+                .findFirst();
+                
+        if (vOpt.isPresent()) {
+            IVehicle v = vOpt.get();
+            sliderSpeed.setValue(v.getSpeed());
+            
+            String c = v.getColor(); 
+            if (c != null && cbColor.getItems().contains(c)) {
+                cbColor.setValue(c);
+            }
+            
+            String edge = v.getEdgeId();
+            if (edge != null && cbRoute.getItems().contains(edge)) {
+                cbRoute.setValue(edge);
+            }
+        }
+    }
+    
+    /**
+     * Called by the main game loop to update real-time info (Time, Light status).
+     */
+    public void updateRealTimeData() {
+        if(engine == null) return;
+        lblTime.setText(String.format("TIME: %.2f s", engine.getCurrentSimulationTime()));
+        updateInfo(); // Update Traffic Light info
+        
+        if (cbTrafficLight.getItems().isEmpty()) {
+            List<String> ids = engine.getTrafficLightIdList();
+            if(ids != null) cbTrafficLight.getItems().setAll(ids);
+       }
+    }
+    
+    // --- INTERNAL HANDLERS ---
+    
+    private void setupVehicleHandlers(Button create, Button mod, Button del) {
+        // INJECT Handler
+        create.setOnAction(e -> {
+            try {
+                if (vehicleManager != null) {
+                    vehicleManager.injectVehicle(cbRoute.getValue(), cbLane.getValue(), cbType.getValue(), cbColor.getValue(), spinnerCount.getValue(), sliderSpeed.getValue());
+                }
+            } catch(Exception ex) { ex.printStackTrace(); }
+        });
+        
+        // DELETE Handler
+        del.setOnAction(e -> {
+            try { if (vehicleManager!=null) {
+                // Correctly use the spinner value for quantity
+                vehicleManager.deleteVehicle(cbRoute.getValue(), cbColor.getValue(), sliderSpeed.getValue(), spinnerCount.getValue());
+                txtSelectedId.clear();
+            }} catch(Exception ex) {}
+        });
+        
+        // UPDATE Handler
+        mod.setOnAction(e -> {
+            // Safety Check: Simulation must be PAUSED
+            if (engine != null && !engine.isPaused()) {
+                System.out.println("Action denied: Please PAUSE the simulation.");
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("Simulation Running");
+                alert.setHeaderText(null);
+                alert.setContentText("You must PAUSE the simulation to modify a vehicle!");
+                alert.showAndWait();
+                return;
+            }
+
+            String id = txtSelectedId.getText();
+            if (id == null || id.isEmpty()) return;
+
+            try { 
+                if(vehicleManager != null) {
+                    vehicleManager.modifyVehicle(id, cbColor.getValue(), sliderSpeed.getValue());
+                    System.out.println("Vehicle " + id + " modified.");
+                    
+                    // Immediate view refresh
+                    if (onRefreshRequest != null) onRefreshRequest.run();
+                }
+            } catch(Exception ex) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle("Error");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            }
+        });
+    }
+    
+    private void setupTrafficLightHandlers(Button btnGreen, Button btnRed) {
+        // Refresh traffic light list on click
+        cbTrafficLight.setOnMouseClicked(e -> {
+            if(engine==null) return;
+            List<String> ids = engine.getTrafficLightIdList();
+            if(ids!=null && !ids.equals(cbTrafficLight.getItems())) cbTrafficLight.getItems().setAll(ids);
+        });
+        
+        cbTrafficLight.setOnAction(e -> updateInfo());
+        
+        // FORCE GREEN
+        btnGreen.setOnAction(e -> {
+            String id = cbTrafficLight.getValue();
+            if (id == null) return;
+            
+            // Smart Logic or Fallback
+            if (trafficLightManager != null) {
+                trafficLightManager.forceGreen(id);
+            } else if (engine != null) {
+                try { engine.setTrafficLightPhase(id, 0); } catch(Exception ex) {}
+            }
+            
+            updateInfo();
+            // Immediate view refresh
+            if (onRefreshRequest != null) onRefreshRequest.run();
+        });
+        
+        // FORCE RED
+        btnRed.setOnAction(e -> {
+            String id = cbTrafficLight.getValue();
+            if (id == null) return;
+            
+            if (trafficLightManager != null) {
+                trafficLightManager.forceRed(id);
+            } else if (engine != null) {
+                try { engine.setTrafficLightPhase(id, 2); } catch(Exception ex) {}
+            }
+            
+            updateInfo();
+            // Immediate view refresh
+            if (onRefreshRequest != null) onRefreshRequest.run();
+        });
+    }
+    
+    private void updateInfo() {
+        String id = cbTrafficLight.getValue();
+        if (id == null || engine == null) return;
+        
+        try {
+            String state = engine.getTrafficLightState(id);
+            // Double conversion for decimals
+            double timeLeft = engine.getTrafficLightRemainingTime(id) / 1000.0;
+            
+            lblTlState.setText("Phase: " + engine.getTrafficLightPhase(id) + " (" + state + ")");
+            lblPhaseTime.setText(String.format("Remaining: %.1f s", timeLeft));
+            
+            if(engine.getTrafficLightPhase(id)== 0 || engine.getTrafficLightPhase(id)==4 ) indicatorLight.setFill(Color.LIME);
+            else if(engine.getTrafficLightPhase(id)==2) indicatorLight.setFill(Color.RED);
+            else indicatorLight.setFill(Color.ORANGE);
+            
+        } catch(Exception e) {}
+    }
+    
+    // --- STYLE HELPERS ---
+    
+    private VBox createCard(String title) {
+        VBox v = new VBox(10);
+        v.setStyle("-fx-background-color: #383838; -fx-background-radius: 8; -fx-padding: 15; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 10, 0, 0, 2);");
+        Label l = new Label(title);
+        l.setTextFill(Color.web("#aaa"));
+        l.setFont(Font.font("System", FontWeight.BOLD, 11));
+        v.getChildren().add(l);
+        return v;
+    }
+    
+    private Button createFlatBtn(String text, String color) {
+        Button b = new Button(text);
+        b.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 4; -fx-cursor: hand;");
+        b.setMaxWidth(Double.MAX_VALUE);
+        return b;
+    }
+    
+    private Button createIconBtn(String icon, Color c) {
+        Button b = new Button(icon);
+        b.setStyle("-fx-background-color: #" + c.toString().substring(2,8) + "; -fx-text-fill: #222; -fx-font-weight: bold; -fx-font-size: 14; -fx-background-radius: 20;");
+        b.setPrefSize(40, 40);
+        return b;
+    }
+    
+    private ComboBox<String> createStyledCombo(String prompt) {
+        ComboBox<String> cb = new ComboBox<>();
+        cb.setPromptText(prompt);
+        cb.setMaxWidth(Double.MAX_VALUE);
+        cb.setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-mark-color: white;");
+        return cb;
+    }
+    
+    private Label createLabel(String t) {
+        Label l = new Label(t);
+        l.setTextFill(Color.WHITE);
+        l.setFont(Font.font(10));
+        return l;
     }
 }

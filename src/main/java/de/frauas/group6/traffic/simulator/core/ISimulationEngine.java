@@ -2,6 +2,9 @@ package de.frauas.group6.traffic.simulator.core;
 
 import java.awt.geom.Point2D;
 import java.util.List;
+import de.frauas.group6.traffic.simulator.view.GuiManager;
+import de.frauas.group6.traffic.simulator.view.IMapObserver;
+
 
 public interface ISimulationEngine {
 
@@ -36,9 +39,9 @@ public interface ISimulationEngine {
     void setTrafficLightDuration(String tlId, int durationSeconds);
 
     // --- Advanced Traffic Control (Milestone 2 Features) ---
-    void forceGreenWave(String trafficLightId);
+   /* void forceGreenWave(String trafficLightId);
     void forceRedStop(String trafficLightId);
-    void checkAndHandleCongestion();
+    void checkAndHandleCongestion();*/
 
     // --- Junctions ---
     List<Point2D> getJunctionShape(String junctionId);
@@ -58,4 +61,9 @@ public interface ISimulationEngine {
     void pause();
     void resume();
     boolean isPaused();
+
+
+	void setMapObserver(IMapObserver guiManager);
+
 }
+
