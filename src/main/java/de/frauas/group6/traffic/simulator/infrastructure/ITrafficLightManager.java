@@ -3,24 +3,14 @@ package de.frauas.group6.traffic.simulator.infrastructure;
 import java.util.List;
 
 public interface ITrafficLightManager {
-	
-
-	
-	void switchToPhase(String edgeId, int phase,int time);
-	
-	List<String> getJunctionIds();
-	
-	List<String> getTrafficLightIdList();
-	
-	List<IEdge> getEdges();
-	
-	int  getRemainingTime();
-	
-	void setAutomaticControl(boolean enabled);
-	
-	void updateTrafficLights();
-	
-	int getPhase(String junctionId);
-	
-
+    void updateTrafficLights();
+    List<ITrafficLight> getAllTrafficLights();
+    ITrafficLight getTrafficLightById(String id);
+    void switchPhase(String tlId, int newPhase);
+    void setDuration(String tlId, int durationSeconds);
+    
+    // --- Logic Control ---
+    void forceGreen(String tlId);
+    void forceRed(String tlId);
+    void handleCongestion(List<IEdge> edges);
 }
