@@ -18,7 +18,7 @@ public interface IStatsCollector {
 	
 	void exportToCsv(String filepath, ExportType type, ExportFilter filter);
 	
-	void exportTopdf(String filepath);
+	void exportToPdf(String filepath, ExportType type, ExportFilter filter);
 	
 
 }

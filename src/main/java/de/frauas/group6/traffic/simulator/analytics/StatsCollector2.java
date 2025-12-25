@@ -1,15 +1,20 @@
 package de.frauas.group6.traffic.simulator.analytics;
-
-import java.io.PrintWriter;
+// --- Java utility and concurrency classes (collections, maps, Logging) ---
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.logging.Logger;
-
+// --- Java I/O classes for CSV and in-memory text handling ---
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.FileOutputStream;
+// --- PDF generation using OpenPDF ---
 import com.lowagie.text.Document;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.pdf.PdfWriter;
-
-
+// --- Date and time utilities for report timestamps ---
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+// --- Simulation core and domain interfaces ---
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicle;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
@@ -18,14 +23,12 @@ import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
 
 public class StatsCollector2 implements IStatsCollector {
 	private final ConcurrentSkipListMap<Integer,Double> avgSpeedPerStep = new ConcurrentSkipListMap<>();
-	private final List<Integer> vehicleCountPerStep = new ArrayList<>();
 	private final Map<String, Double> enterTime = new HashMap<>();
 	private final Map<String, Double> exitTime = new HashMap<>();
 	private final Map<String, List<String>> routeEdges = new HashMap<>();
 	private final Map<String, List<Double>> avgTravelTimeRouteList = new HashMap<>();
 	private final Map<String, Double> avgTravelTimeRoute = new HashMap<>();
 	private final Map<String, List<Double>> edgeDensityPerStepList = new HashMap<>();
-	private final Map<String, Double> edgeDensityTotal = new HashMap<>();
 	private final List<String> congestionList = new ArrayList<>();
 	
 	private void initRoutesManually() {
@@ -49,7 +52,6 @@ public class StatsCollector2 implements IStatsCollector {
 	        avgTravelTimeRouteList.put(routeId, new ArrayList<>());
 	        avgTravelTimeRoute.put(routeId, null);
 	    }
-	    
 	}
 
 	private final IVehicle ivehicle;
@@ -69,6 +71,10 @@ public class StatsCollector2 implements IStatsCollector {
 	private int currentStep = 0;
 	private static int MIN_STOPPED_VEHICLES = 3;
 	
+	//===========================
+	// COLLECT DATA PER STEP
+	//===========================
+	
 public void collectData() {
 	try {
 		// STEP COUNTER
@@ -76,9 +82,7 @@ public void collectData() {
 	    currentStep++;
 	    // Get all currently active vehicles
 	    Collection<IVehicle> vehicles = vehicleManager.getAllVehicles();
-	    // VEHICLE COUNT & AVERAGE SPEED
-	    // Number of Vehicles in this Simulation step
-	    int vehicleCountPerStep = vehicles.size();
+	    // MOVING VEHICLES COUNT & AVERAGE SPEED
 	    double speedSum = 0.0;
 	    int movingVehicleCount = 0;
 	    
@@ -124,12 +128,12 @@ public void collectData() {
 	    	// EDGE DENSITY
 	    	
 	    	// Number of vehicles on this edge in the current step
-	    	int vehiclesOnEndge = simulationEngine.getEdgeVehicleCount(edgeId);
+	    	int vehiclesOnEdge = simulationEngine.getEdgeVehicleCount(edgeId);
 	    	// Length of the edge 
 	    	double edgeLength = simulationEngine.getEdgeLength(edgeId);
 	    	
 	    	double densityThisStep = 0.0;
-	    	if (edgeLength > 0) { densityThisStep = (double) vehiclesOnEndge / edgeLength; }
+	    	if (edgeLength > 0) { densityThisStep = (double) vehiclesOnEdge / edgeLength; }
 	    	// Store density per edge and per step
 	    	edgeDensityPerStepList.computeIfAbsent(edgeId, k -> new ArrayList<>()).add(densityThisStep);
 	    	
@@ -138,7 +142,7 @@ public void collectData() {
 	    	int stoppedVehiclesOnEdge = 0;
 	    	// Count stopped vehicles on this edge
 	    	for (IVehicle v : vehicles) {
-	    		if (edge.equals(v.getEdgeId()) && v.getSpeed() <= 0.1) { stoppedVehiclesOnEdge++; }
+	    		if (edge.getId().equals(v.getEdgeId()) && v.getSpeed() <= 0.1) { stoppedVehiclesOnEdge++; }
 	    	}
 	    	// Edge is considered congested if enough vehicles are stopped
 	    	boolean congestedThisStep = stoppedVehiclesOnEdge >= MIN_STOPPED_VEHICLES;
@@ -155,7 +159,9 @@ public void collectData() {
 	    
 }
 
-//-------------------------------------------------------------------------------------------------------------------------------
+	//===========================
+	// AVERAGE SPEED
+	//===========================
 
  @Override
  public double getAverageSpeed() {
@@ -164,17 +170,6 @@ public void collectData() {
      return avgSpeedPerStep.getOrDefault(currentStep, 0.0);
  }
 
-private void exportAverageSpeed(PrintWriter writer) {
-	
-    writer.println("=== Average Speed Per Step ===");
-    
-    // Iterate over all recorded steps 
-    for (Map.Entry<Integer, Double> e : avgSpeedPerStep.entrySet()) {
-    	// Example output: Step 1, 1.20m/s
-    	writer.println("Step " + e.getKey() + ", " + String.format(Locale.US, "%.2f", e.getValue()) + "m/s");
-    }
-}
-
  @Override
  public List<Double> getSpeedHistory() {
 	 if (currentStep == 0) return Collections.emptyList();
@@ -182,7 +177,53 @@ private void exportAverageSpeed(PrintWriter writer) {
      return new ArrayList<>(avgSpeedPerStep.values());
  }
  
-//------------------------------------------------------------------------------------------------------------------------------- 
+ private void exportAverageSpeedInternal (PrintWriter writer, boolean forPdf) {
+	
+	//----------------------------------------
+	// CSV export: output all simulation steps
+	//----------------------------------------
+	if (!forPdf) {
+	    writer.println("Step,AverageSpeed(m/s)");
+	    
+	    // Iterate over all recorded steps 
+	    for (Map.Entry<Integer, Double> e : avgSpeedPerStep.entrySet()) {
+	    	// Example output: Step 1, 1.20m/s
+	    	writer.println(e.getKey() + "," + String.format(Locale.US, "%.2f", e.getValue()));
+	    }
+	    return;
+	}   
+	
+	//----------------------------
+	// PDF export: summary only 
+	//----------------------------
+	writer.println("Average Speed Summary");
+	
+	// No data available
+	if (avgSpeedPerStep.isEmpty()) { 
+		writer.println("No speed data available"); 
+		return;
+	}
+	
+	double sum = 0.0;
+	double min = Double.MAX_VALUE;
+	double max = Double.MIN_VALUE;
+	
+	// Compute summary statistics based on per-step average speeds
+	for (double speed : avgSpeedPerStep.values()) {
+		sum += speed;
+		min = Math.min(min, speed);
+		max = Math.max(max, speed);
+	}
+	double avg = sum / avgSpeedPerStep.size();
+	writer.println("Average speed (mean of step averages): " + avg);
+	writer.println("Minimum average speed per step: " + String.format(Locale.US, "%.2f m/s", min));
+	writer.println("Maximum average speed per step: " + String.format(Locale.US, "%.2f m/s", max));
+}
+
+ 
+	//=========================
+	// AVERAGE TRAVEL TIME
+	//=========================
 
  // Flag to ensure that average travel times are calculated only once
  private boolean travelTimeCalculated = false;
@@ -224,26 +265,32 @@ private void exportAverageSpeed(PrintWriter writer) {
      return avgTravelTimeRoute.getOrDefault(routeId, 0.0);
  }
 
- private void exportAverageTravelTime(PrintWriter writer, ExportFilter filter) {
+ private void exportAverageTravelTimeInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
+
+	 if (!forPdf) {
+	     writer.println("RouteId,RouteEdges,AverageTravelTime(s)");
+	 } else { writer.println("Average Travel Time per Route"); }
 	 
-     writer.println("=== Average Travel Time per Route ===");
-     
-     for (String routeId : routeEdges.keySet()) {
-    	 double avgTime = getAverageTravelTime(routeId);
-    	 // -----------------Filter-----------------
-    	 if (filter != null && !filter.matchesRoute(routeId, avgTime)) {
-    		 continue;
-    	 }
+	 boolean anyRoutePrinted = false;
+	 for (String routeId : routeEdges.keySet()) {
+		 double avgTime = getAverageTravelTime(routeId);
+		 
+		// -----------------Filter-----------------
+    	 if (filter != null && !filter.matchesRoute(routeId, avgTime)) { continue; }
+    	 anyRoutePrinted = true;
     	 List<String> edges = routeEdges.get(routeId);
-    	 // e.g. (-E48 -E47 -E49)
     	 String edgesFormatted = "(" + String.join(" ", edges) + ")";
     	 
-    	 // e.g. R0, (-E48 -E47 -E49), 6.40s
-    	 writer.println(routeId + ", " + edgesFormatted + ", " + String.format(Locale.US, "%.2f", avgTime) + "s");
-     }	
- }
- 
-//------------------------------------------------------------------------------------------------------------------------------- 
+    	 if (!forPdf) { writer.println(routeId + "," + edgesFormatted + "," +  String.format(Locale.US, "%.2f", avgTime)); }
+    	 else { writer.println("Route " + routeId + "  " + edgesFormatted + "  Avg travel time: " + String.format(Locale.US, "%.2f s", avgTime)); }
+    	 
+	 }
+	 if (forPdf && !anyRoutePrinted) { writer.println("No routes match the selected filters."); }
+}
+	 
+ 	//=================
+	// EDGE DENSITY
+	//=================
  
  @Override
  public double getEdgeDensity (String edgeId) {
@@ -256,10 +303,12 @@ private void exportAverageSpeed(PrintWriter writer) {
      return history.get(currentStep - 1);
  }
 
- private void exportEdgeDensity (PrintWriter writer, ExportFilter filter) {
+ private void exportEdgeDensityInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
 	 
-	 writer.println("=== EdgeId and TotalDensity ===");
+	 if (forPdf) { writer.println("Edge Density Summary"); } 
+	 else { writer.println("EdgeId,AverageDensity(veh/m)"); }
 	 
+	 boolean anyEdgePrinted = false;
 	 // Iterate over all edges that have density data
 	 for (String edgeId : edgeDensityPerStepList.keySet()) {
 		 // Density history for this edge (one value per step)
@@ -270,42 +319,50 @@ private void exportAverageSpeed(PrintWriter writer) {
 		 double sum = 0.0;
 		 for (double density : history) { sum += density; }		 
 		 double avgDensity = sum / history.size();
-		 // was this Edge congested ?
+		 // Check if this edge was ever congested
 		 boolean congestedEver = congestionList.contains(edgeId);
-		 // ------------------Filter--------------------
-		 if (filter != null && !filter.matchesEdge(edgeId, avgDensity, congestedEver)) {
-			 continue;
-		 }
 		 
-		 writer.println(edgeId + ", " + String.format(Locale.US, "%.2f", avgDensity) + "(veh/m)");
+		 // ------------------Filter--------------------
+		 if (filter != null && !filter.matchesEdge(edgeId, avgDensity, congestedEver)) { continue; }
+		 anyEdgePrinted = true;
+		 
+		 if(forPdf) { 
+			 writer.println("Edge " + edgeId + "  Average density: " + String.format(Locale.US, "%.2f veh/m", avgDensity) + (congestedEver ? " (congested)" : "")); }
+		 else {writer.println(edgeId + "," + String.format(Locale.US, "%.2f", avgDensity)); }
 	 }	 
+	 if (forPdf && !anyEdgePrinted) { writer.println("No edges match the selected filters."); }
  }	 
  
-//------------------------------------------------------------------------------------------------------------------------------- 
+ 	//====================
+	// CONGESTED EDGES
+	//==================== 
 
  @Override
  public List<String> getCongestedEdgeIds() {
 	 return new ArrayList<>(congestionList);
  }
 
- private void exportCongestedEdges (PrintWriter writer, ExportFilter filter) {
+ private void exportCongestedEdgesInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
 	 
-	 writer.println("=== CongestedEdgeIDs ===");
+	 writer.println("Congested Edges");
 	 
+	 boolean anyEdgePrinted = false;
 	 for (String edgeId : congestionList) { 
 		 //-------------Filter-----------------
-		 if (filter != null) {
-			 // onlyEdgeID
-			 if (!filter.matchesCongestedEdge(edgeId)) continue;
-		 }
+		 if (filter != null && !filter.matchesCongestedEdge(edgeId)) { continue; }
+		 anyEdgePrinted = true;
 		 
-		 writer.println(edgeId); 
+		 if (forPdf) { writer.println("Edge " + edgeId + " is congested"); }
+		 else { writer.println(edgeId); } 
 	 }
+	 if (forPdf && !anyEdgePrinted) { writer.println("No congested edges match the selected filters."); }
  }
  
-//-------------------------------------------------------------------------------------------------------------------------------
+ 	//=========================
+	// VEHICLE TRAVEL TIME
+	//=========================
  
-private IVehicle findVehicleById(String vehicleId) {
+ private IVehicle findVehicleById (String vehicleId) {
     for (IVehicle v : vehicleManager.getAllVehicles()) {
         if (v.getId().equals(vehicleId)) {
             return v;
@@ -314,30 +371,39 @@ private IVehicle findVehicleById(String vehicleId) {
     return null;
 }
 
-private void exportVehicleTravelTimes(PrintWriter writer, ExportFilter filter) {
+ private void exportVehicleTravelTimesInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
 
-    writer.println("=== vehicleId, color, travelTime ===");
+	if (forPdf) { writer.println("Vehicle Travel Times"); }
+	else { writer.println("vehicleId,color,travelTime(s)"); }
 
+	boolean anyVehiclePrinted = false;
     for (String vehicleId : exitTime.keySet()) {
         Double enter = enterTime.get(vehicleId);
         Double exit  = exitTime.get(vehicleId);
 
         if (enter == null || exit == null || exit <= enter) { continue; }
         double travelTime = exit - enter;
-
         IVehicle vehicle = findVehicleById(vehicleId);
         if (vehicle == null) { continue; }
+        
         //--------------------FILTER---------------------
         if (filter != null && !filter.matchesVehicleColor(vehicle)) { continue; }
-
+        anyVehiclePrinted = true;
+        
         String color = vehicle.getColor();
-        writer.println(vehicleId + ", " + color + ", " + String.format(Locale.US, "%.2f", travelTime));
+        if (forPdf) { writer.println("Vehicle " + vehicleId + "  Color: " + color + "  Travel time: " + String.format(Locale.US, "%.2f s", travelTime)); }
+        else { writer.println(vehicleId + "," + color + "," + String.format(Locale.US, "%.2f", travelTime)); }
     }
+    if (forPdf && !anyVehiclePrinted) { writer.println("No vehicles match the selected filters."); } 
 }
 
-private void exportSummary (PrintWriter writer) {	// with no Filter
+	//=============
+	// SUMMARY
+	//=============
+
+ private void exportSummaryInternal (PrintWriter writer, boolean forPdf) {	// with no Filter
 	
-	writer.println("=== Simulation Summary ==)");
+	writer.println("Simulation Summary");
 	
 	// --- Basic simulation information ---
 	int totalSteps = currentStep;
@@ -356,50 +422,143 @@ private void exportSummary (PrintWriter writer) {	// with no Filter
 		speedCount++;
 	}
 	double overAllAvgSpeed = speedCount > 0 ? speedSum / speedCount : 0.0;
-	writer.println("Overall average speed: " + String.format(Locale.US, "%.2f", overAllAvgSpeed) + "m/s");
+	writer.println("Overall average speed (mean of step averages): " + String.format(Locale.US, "%.2f", overAllAvgSpeed) + "m/s");
 	
 	// --- Congestion information ---
-	writer.println("Congested edges: " + congestionList.size());
+	writer.println("Number of congested edges: " + congestionList.size());
 }
 
+	//=================
+	// EXPORT TO CSV
+	//=================
+ 
  @Override
  public void exportToCsv (String filepath, ExportType type, ExportFilter filter) {
      try (PrintWriter writer = new PrintWriter(filepath, "UTF-8")) {
 
          switch(type) {
         	 
-        	 case AVG_SPEED: exportAverageSpeed(writer);
+        	 case AVG_SPEED: exportAverageSpeedInternal(writer, false);
         	 break;
         	 
-        	 case AVG_TRAVEL_TIME: exportAverageTravelTime(writer, filter);
+        	 case AVG_TRAVEL_TIME: exportAverageTravelTimeInternal(writer, filter, false);
         	 break;
         	 
-        	 case EDGE_DENSITY: exportEdgeDensity(writer, filter);
+        	 case EDGE_DENSITY: exportEdgeDensityInternal(writer, filter, false);
         	 break;
         	 
-        	 case CONGESTED_EDGES: exportCongestedEdges(writer, filter);
+        	 case CONGESTED_EDGES: exportCongestedEdgesInternal(writer, filter, false);
         	 break;
         	 
-        	 case VEHICLE_TRAVEL_TIMES: exportVehicleTravelTimes(writer, filter);
+        	 case VEHICLE_TRAVEL_TIMES: exportVehicleTravelTimesInternal(writer, filter, false);
         	 break;
         	 
-        	 case SUMMARY: exportSummary(writer);
-        	 break;
+        	 case SUMMARY: 
+        		 throw new UnsupportedOperationException("SUMMARY export is only supported for PDF, not for CSV.");
         	 
          }
      } catch (Exception e) {
     	 LOGGER.warning("StatsCollector: failed to export CSV: " + e.getMessage());
 	}
  }
+
+	//=================
+	// EXPORT TO PDF
+	//=================
+ 
+ private String getDescriptionForType (ExportType type) {
+	 
+	 switch (type) {
+	 
+	 	case AVG_SPEED:
+	 		return "This report shows the average vehicle speed computed as the mean of all per-step average speeds.";
+	 	case AVG_TRAVEL_TIME:
+	 		return "This report shows the average travel time per route based on vehicles that completed the route.";
+	 	case EDGE_DENSITY:
+	 		return "This report summarizes the average vehicle density per edge over the entire simulation.";
+	 	case CONGESTED_EDGES:
+	 		return "This report lists all edges that were congested at least once during the simulation.";
+	 	case VEHICLE_TRAVEL_TIMES:
+	 		return "This report shows the individual travel times of vehicles that completed their routes.";
+	 	case SUMMARY:	
+	 		return "This report provides a summary of the entire traffic simulation.";
+	 		
+	 	default:
+	 		return "No description available for this report type.";
+	 }
+ }
  
  @Override
- public void exportTopdf (String filepath) {
+ public void exportToPdf (String filepath, ExportType type, ExportFilter filter) {
 
      try {
-    	 com.lowagie.text.Document document = new com.lowagie.text.Document();
     	 
-
+    	 // Create the PDF document
+    	 Document document = new Document();
+    	 // Bind the document to a file
+    	 PdfWriter.getInstance(document, new FileOutputStream(filepath));
+    	 // Open the document
+    	 document.open();
+    	 
+    	 // Formatter for a readable timestamp in the PDF report
+    	 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    	 // Timestamp representing the report generation time
+    	 String timestamp = LocalDateTime.now().format(formatter);
          
+    	 // --- Report title ---
+    	 document.add(new Paragraph("Traffic Simulation Statistics Report"));
+    	 // --- Report metadata: creation time ---
+    	 document.add(new Paragraph("Generated on: " + timestamp));
+    	 document.add(new Paragraph(" "));
+    	 
+    	 // Which Export Type
+    	 document.add(new Paragraph("Export Type: " + type));
+    	 // Type description
+    	 document.add(new Paragraph(getDescriptionForType(type)));
+    	 
+    	 // --- Applied Filters section ---
+    	 document.add(new Paragraph("Applied Filters"));
+    	 if (filter != null) {
+    		 document.add(new Paragraph(filter.toString()));
+    	 } else { document.add(new Paragraph("No filters applied")); }
+    	 
+    	 document.add(new Paragraph(" "));
+    	 document.add(new Paragraph("Filtered Results"));
+    	 document.add(new Paragraph(" "));
+    	 
+    	 // Collect output using existing export methods
+    	 StringWriter sw = new StringWriter();
+    	 PrintWriter pw = new PrintWriter(sw);
+    	 
+    	 switch(type) {
+    	 
+    	 	case AVG_SPEED: exportAverageSpeedInternal(pw, true);
+    	 	break;
+    	 
+    	 	case AVG_TRAVEL_TIME: exportAverageTravelTimeInternal(pw, filter, true);
+    	 	break;
+    	 
+    	 	case EDGE_DENSITY: exportEdgeDensityInternal(pw, filter, true);
+    	 	break;
+    	 
+    	 	case CONGESTED_EDGES: exportCongestedEdgesInternal(pw, filter, true);
+    	 	break;
+    	 
+    	 	case VEHICLE_TRAVEL_TIMES: exportVehicleTravelTimesInternal(pw, filter, true);
+    	 	break;
+    	 
+    	 	case SUMMARY: exportSummaryInternal(pw, true);
+    	 	break;
+    	  
+    	 }
+    	 
+    	 pw.flush();
+    	 
+    	 // Write lines into PDF
+    	 for (String line : sw.toString().split("\n")) { document.add(new Paragraph(line)); }
+    	 
+    	 // Close the document
+    	 document.close();
 
      } catch (Exception e) {
          LOGGER.warning("StatsCollector: failed to export PDF: " + e.getMessage());
