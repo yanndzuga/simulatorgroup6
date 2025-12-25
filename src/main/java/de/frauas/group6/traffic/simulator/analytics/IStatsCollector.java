@@ -4,21 +4,21 @@ import java.util.List;
 
 public interface IStatsCollector {
 	
+	void collectData();
+	
+	double getAverageSpeed();
+	
 	List<Double> getSpeedHistory();
 	
-	double getAverageTravelTime();
+	double getAverageTravelTime(String routeId);
 	
 	double getEdgeDensity(String edgeId);
 	
 	List<String> getCongestedEdgeIds();
 	
-	void exportToCsv(String filepath);
+	void exportToCsv(String filepath, ExportType type, ExportFilter filter);
 	
 	void exportTopdf(String filepath);
 	
-	void collectData();
-	
-	double getAverageSpeed();
-	
-	
+
 }
