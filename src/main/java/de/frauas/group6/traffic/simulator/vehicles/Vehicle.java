@@ -11,6 +11,7 @@ public class Vehicle implements IVehicle {
 			private Point2D Position;
 			private String routeid;
 			private String edgeid;
+<<<<<<< HEAD
 			private byte Lane;    
 			private boolean isvisible;
 			
@@ -18,6 +19,15 @@ public class Vehicle implements IVehicle {
 			public 	Vehicle() { id=""; speed=0.0;Farbe="Black"; Position=new Point2D.Double(0.0,0.0); edgeid=""; Lane=0; TypeId="DEFAULT_VEHTYPE"; isvisible=false; routeid="";}
 			
 			public Vehicle(String id,String TypeId,double speed, String Farbe,String edgeid,byte Lane,boolean isvisible,String routeid) { this.id=id; this.TypeId=TypeId; this.speed=speed; this.Farbe=Farbe; this.edgeid=edgeid; this.Lane=Lane; this.isvisible=isvisible;this.routeid=routeid;}
+=======
+			private byte Lane;
+			private String routeId;
+			
+			//Methoden
+			public 	Vehicle() { id=""; speed=0.0;Farbe="Black"; Position=new Point2D.Double(0.0,0.0); edgeid=""; Lane=0; TypeId="DEFAULT_VEHTYPE"; routeId = null;}
+			
+			public Vehicle(String id,String TypeId,double speed, String Farbe,String edgeid,byte Lane, String routeId) { this.id=id; this.TypeId=TypeId; this.speed=speed; this.Farbe=Farbe; this.edgeid=edgeid; this.Lane=Lane; this.routeId = routeId;}
+
 			
 			public Vehicle(String id,String TypeId,double speed,String color,double x,double y,String edgeid,byte Lane,boolean isvisible,String routeid) { this.id=id; this.TypeId=TypeId; this.speed=speed; this.Farbe=color; this.Position= new Point2D.Double(x,y);this.edgeid=edgeid;this.Lane=Lane; this.isvisible=isvisible; this.routeid=routeid; }
 			//Getter
@@ -31,6 +41,8 @@ public class Vehicle implements IVehicle {
 			public boolean isIsVisible() { return isvisible; }
 			public String  getRouteId() { return routeid; }
 			
+
+
 			//Setter
 			public void setColor(String newColor) { Farbe=newColor; }
 			public void setSpeed(double newSpeed) { speed=newSpeed; }

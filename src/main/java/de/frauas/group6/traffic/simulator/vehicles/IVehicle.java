@@ -14,6 +14,7 @@ public interface IVehicle {
 	String getEdgeId();
 	boolean isIsVisible();
 	String  getRouteId();
+
 	
 	void setColor(String newColor);
 	void setSpeed(double newSpeed);
