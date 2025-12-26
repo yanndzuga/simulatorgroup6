@@ -1,6 +1,7 @@
 package de.frauas.group6.traffic.simulator.analytics;
 
 import java.util.List;
+import java.util.Map;
 
 public interface IStatsCollector {
 	
@@ -10,15 +11,15 @@ public interface IStatsCollector {
 	
 	List<Double> getSpeedHistory();
 	
-	double getAverageTravelTime(String routeId);
+	Map<String, Double> getAverageTravelTime();
 	
-	double getEdgeDensity(String edgeId);
+	Map<String, Double> getEdgeDensity();
 	
-	List<String> getCongestedEdgeIds();
+	Map<String, Integer> getCongestedEdgeIds();
 	
-	void exportToCsv(String filepath, ExportType type, ExportFilter filter);
+	void exportToCsv(String filepath, ExportFilter filter, List<ExportType> types);
 	
-	void exportToPdf(String filepath, ExportType type, ExportFilter filter);
+	void exportToPdf(String filepath, ExportFilter filter, List<ExportType> types);
 	
 
 }

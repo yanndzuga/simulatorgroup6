@@ -22,36 +22,6 @@ public class ExportFilter {
 	private boolean onlyCongestedEdges;
 	private Double minEdgeDensity;
 	
-	// ------------------------------
-	// VEHICLE MATCH (VEHICLE COLOR)
-	// ------------------------------
-	public boolean matchesVehicleColor (IVehicle v) {
-		if (vehicleColor != null && !vehicleColor.equals(v.getColor())) { return false; }
-		return true;
-	}
-	
-	// ------------------------------------------
-	// ROUTE MATCH (ROUTEID & AVERAGETRAVELTIME)
-	// ------------------------------------------
-	public boolean matchesRoute (String routeId, double avgTravelTime) {
-		if (onlyRouteId != null && !onlyRouteId.equals(routeId)) { return false; }
-		if (minAverageTravelTime != null && avgTravelTime < minAverageTravelTime ) { return false; }
-		return true;
-	}
-	
-	// ---------------------------------------------------
-	// EDGE MATCH (EDGEID & EDGEDENSITY & CONGESTIONLIST)
-	// ---------------------------------------------------
-	public boolean matchesEdge (String edgeId, double avgDensity, boolean congestedEver) {
-		if (onlyEdgeId != null && !onlyEdgeId.equals(edgeId)) { return false; }
-		if (onlyCongestedEdges && !congestedEver) { return false; }
-		if (minEdgeDensity != null && avgDensity < minEdgeDensity) { return false; }
-		return true;
-	}
-	public boolean matchesCongestedEdge(String edgeId) {
-	    if (onlyEdgeId != null && !onlyEdgeId.equals(edgeId)) return false;
-	    return true;
-	}
 
 	//--------------------
 	// SETTER
@@ -62,13 +32,43 @@ public class ExportFilter {
 	
 	public void setOnlyRouteId (String onlyRouteId) { this.onlyRouteId = onlyRouteId; }
 	
-	public void setOnlyCongeytedEdges (boolean onlyCongestedEdges) { this.onlyCongestedEdges = onlyCongestedEdges; }
+	public void setOnlyCongestedEdges (boolean onlyCongestedEdges) { this.onlyCongestedEdges = onlyCongestedEdges; }
 	
 	public void setOnlyEdgeId (String onlyEdgeId) { this.onlyEdgeId = onlyEdgeId; }
 	
 	public void setMinEdgeDensity (Double minEdgeDensity) { this.minEdgeDensity = minEdgeDensity; }
 	
+	//--------------------
+	// GETTER
+	//--------------------
 	
+	public String getVehicleColor() { return vehicleColor; }
+	
+	public Double getMinAverageTravelTime() {return minAverageTravelTime; }
+	
+	public String getOnlyRouteId() { return onlyRouteId; }
+	
+	public String getOnlyEdgeId() { return onlyEdgeId; }
+	
+	public boolean getOnlyCongestedEdges() { return onlyCongestedEdges; }
+	
+	public Double getMinEdgeDensity() { return minEdgeDensity; }
+	
+	
+	public boolean hasVehicleColorFilter() { return vehicleColor != null; }
+
+	public boolean hasOnlyEdgeIdFilter() { return onlyEdgeId != null; }
+
+	public boolean hasMinEdgeDensityFilter() { return minEdgeDensity != null; }
+
+	public boolean hasOnlyCongestedEdgesFilter() { return onlyCongestedEdges; }
+
+	public boolean hasOnlyRouteIdFilter() { return onlyRouteId != null; }
+
+	public boolean hasMinAverageTravelTimeFilter() { return minAverageTravelTime != null; }
+
+	
+	// toString() for PDF export
 	@Override
 	public String toString() {
 	    StringBuilder sb = new StringBuilder();
@@ -90,10 +90,6 @@ public class ExportFilter {
 	    }
 	    if (minEdgeDensity != null) {
 	        sb.append("minEdgeDensity = ").append(minEdgeDensity).append("\n");
-	    }
-
-	    if (sb.length() == 0) {
-	        return "No filters applied";
 	    }
 
 	    return sb.toString();

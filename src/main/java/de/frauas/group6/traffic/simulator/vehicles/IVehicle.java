@@ -12,6 +12,7 @@ public interface IVehicle {
 	double getSpeed();
 	int getEdgeLane();
 	String getEdgeId();
+	String getRouteId();
 	
 	void setColor(String newColor);
 	void setSpeed(double newSpeed);
