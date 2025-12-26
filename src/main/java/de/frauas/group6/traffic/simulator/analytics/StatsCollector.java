@@ -303,7 +303,7 @@ public void collectData() {
 	 // Ensure averages are computed before accessing them
 	 allAverageTravelTimesPerRoute();
 	 // Return average travel time per route
-     return avgTravelTimeRoute;
+     return new HashMap<>(avgTravelTimeRoute);
  }
 
  private void exportAverageTravelTimeInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
@@ -354,7 +354,7 @@ public void collectData() {
     	 edgeDensity.put(edgeId, edgeDen);
      }
      
-     return edgeDensity;
+     return new HashMap<>(edgeDensity);
  }
 
  private void exportEdgeDensityInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
