@@ -9,7 +9,7 @@
     <route id="R1" edges="-E48 -E45"/>
     <route id="R2" edges="E46 -E47 -E49"/>
     <route id="R3" edges="E46 E48"/>
-    <route id="R4" edges="E46 E45"/>
+    <route id="R4" edges="E46 -E45"/>
     <route id="R5" edges="-E51 -E49"/>
     <route id="R6" edges="-E51 -E50"/>
     <route id="R7" edges="E50 E47 E48"/>

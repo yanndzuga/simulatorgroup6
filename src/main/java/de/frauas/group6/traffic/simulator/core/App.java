@@ -1,5 +1,6 @@
 package de.frauas.group6.traffic.simulator.core;
 
+import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
 import de.frauas.group6.traffic.simulator.infrastructure.TrafficLightManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
@@ -42,7 +43,7 @@ public class App {
             
             
             // Member 5: Stats - Placeholder if not ready
-            // IStatsCollector statsCollector = new StatsCollector(engine);
+             IStatsCollector statsCollector = null;
 
             // ------------------------------------------------------------
             // 3. Dependency Injection (Wiring)
@@ -62,7 +63,7 @@ public class App {
             // 5. Start User Interface (View - Member 4)
             // ------------------------------------------------------------
             // Passes the engine and managers to the GUI so controls can work immediately
-            GuiManager.startUI(engine, vehicleMgr,lightMgr);
+            GuiManager.startUI(engine, vehicleMgr,lightMgr,statsCollector);
 
             // ------------------------------------------------------------
             // 6. Start the Simulation Loop
