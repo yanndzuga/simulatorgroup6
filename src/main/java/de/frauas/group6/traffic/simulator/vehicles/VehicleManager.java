@@ -43,7 +43,7 @@ public  class VehicleManager implements IVehicleManager {
             String vehicleId;
             String TypeId = "";
             List<String> successfullyAddedIds = new ArrayList<>();
-            byte edgeLane = 0;
+            byte edgeLane = -5;
             int r = 0, g = 0, b = 0;
            boolean isvisible=false;
            final double SPEED_TOLERANCE = 0.1;
@@ -148,7 +148,7 @@ public  class VehicleManager implements IVehicleManager {
         for (IVehicle vehicle : Vehicles.values()) {
             boolean speedMatches = Math.abs(vehicle.getSpeed() - requestedSpeed) < SPEED_TOLERANCE;
 
-            if (vehicle.getEdgeId().equals(requestedEdgeId) &&
+            if (vehicle.getRouteId().equals(requestedEdgeId) &&
                 vehicle.getColor().equals(requestedColor) &&
                 speedMatches) {
                 count++;
@@ -194,10 +194,12 @@ public  class VehicleManager implements IVehicleManager {
                     Point2D newPos = SumolationEngine.getVehiclePosition(id);
                     String newEdgeId = SumolationEngine.getVehicleRoadId(id);
                     int newLane = SumolationEngine.getVehicleLaneIndex(id);
+                    double newVit = SumolationEngine.getVehicleSpeed(id);
 
                     vehicle.setPosition(newPos);
                     vehicle.setEdgeId(newEdgeId);
                     vehicle.setEdgeLane((byte) newLane);
+                    vehicle.setSpeed(newVit);
 
                     // If active, we can remove it from the creation grace period list.
                     // Note: If removed too early and SUMO has a momentary glitch, it might be deleted.

@@ -36,6 +36,7 @@ public class StatsCollector implements IStatsCollector {
 	private final Map<String, List<Double>> edgeDensityPerStepList = new HashMap<>();
 	private final Map<String, Double> edgeDensity = new HashMap<>();
 	private final Map<String, Integer> congestionList = new HashMap<>();
+	private final Map<String, Integer> currentStepCongestion = new HashMap<>();
 	
 	private void initRoutesManually() {
 		routeEdges.put("R0", List.of("-E48", "-E47", "-E49"));
@@ -113,29 +114,40 @@ public class StatsCollector implements IStatsCollector {
 		}
 	}
 	
-	private int countStoppedVehiclesOnEdge(String edgeId, Collection<IVehicle> vehicles) {
-	    int count = 0;
-	    for (IVehicle v : vehicles) {
-	        if (edgeId.equals(v.getEdgeId()) && v.getSpeed() <= 0.1) {
-	            count++;
-	        }
-	    }
-	    return count;
-	}
+	
 
-	private void detectCongestion (Collection<IVehicle> vehicles) {
+	// OPTIMISATION Yann  
+    private void detectCongestion(Collection<IVehicle> vehicles) {
+        // 1.Reset instant congestion for this step
+        currentStepCongestion.clear();
+        Map<String, Integer> stoppedCountPerEdge = new HashMap<>();
 
-	    for (IEdge edge : infrastructureManager.getAllEdges()) {
-	        String edgeId = edge.getId();
-	        int stoppedVehicles = countStoppedVehiclesOnEdge(edgeId, vehicles);
-	        // An edge is considered congested if enough vehicles are stopped
-	        if (stoppedVehicles >= MIN_STOPPED_VEHICLES) {
-	        	int previousMax = congestionList.getOrDefault(edgeId, 0);
-	        	if (stoppedVehicles > previousMax) { congestionList.put(edgeId, stoppedVehicles); }
-	        }
-	    }
-	}
+        // 2. A single loop on the vehicles
+        for (IVehicle v : vehicles) {
+            // If the vehicle is stationary and on a valid road
+            if (v.getSpeed() <= 0.5 && v.getEdgeId() != null) {
+                stoppedCountPerEdge.merge(v.getEdgeId(), 1, Integer::sum);
+            }
+        }
 
+        // 3.Update the stats
+        stoppedCountPerEdge.forEach((edgeId, count) -> {
+            if (count >= MIN_STOPPED_VEHICLES) {
+                //For the Real-Time Dashboard
+                currentStepCongestion.put(edgeId, count);
+
+                // For the Final Report (Historical Maximum)
+                int previousMax = congestionList.getOrDefault(edgeId, 0);
+                if (count > previousMax) {
+                    congestionList.put(edgeId, count);
+                }
+            }
+        });
+    }
+
+    public Map<String, Integer> getCurrentCongestedEdgeIds() {
+        return new HashMap<>(currentStepCongestion);
+    }
 	
 	private static final Logger LOGGER =Logger.getLogger(StatsCollector.class.getName());
 	private int currentStep = 0;
@@ -182,6 +194,8 @@ public void collectData() {
 	    collectEdgeDensity();
 	    // Detect congested edges for this step
 	    detectCongestion(vehicles);
+	    
+	    allAverageTravelTimesPerRoute();
 	  
 	} catch (Exception e) {
 		LOGGER.warning("StatsCollector: error during collectData() at step " + currentStep + " : " + e.getMessage());
@@ -264,9 +278,9 @@ public void collectData() {
 	//===============================
 
  // Flag to ensure that average travel times are calculated only once
- private boolean travelTimeCalculated = false;
+ //private boolean travelTimeCalculated = false;
  private void allAverageTravelTimesPerRoute() {
-	if (travelTimeCalculated) return;
+	//if (travelTimeCalculated) return;
 	// Step 1: Collect individual travel times per route
 	for (String vid : exitTime.keySet()) {
 		IVehicle vehicle = vehicleById.get(vid);
@@ -295,7 +309,7 @@ public void collectData() {
 		avgTravelTimeRoute.put(route, avg);
 	}
 	// Mark calculations as completed
-	travelTimeCalculated = true;
+	//travelTimeCalculated = true;
  }
  
  @Override
@@ -636,10 +650,3 @@ public void collectData() {
  }
  
 }
-
-
-
-
-
-
-

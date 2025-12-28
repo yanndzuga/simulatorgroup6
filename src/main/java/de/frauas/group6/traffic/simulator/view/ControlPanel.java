@@ -14,10 +14,10 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import java.util.List;
 import java.util.Optional;
 
-public class ControlPanel extends VBox {
+// Changed extension from VBox to ScrollPane to allow scrolling
+public class ControlPanel extends ScrollPane {
 
     private ISimulationEngine engine;
     private IVehicleManager vehicleManager;
@@ -28,7 +28,7 @@ public class ControlPanel extends VBox {
     // UI Components
     private TextField txtSelectedId;
     private ComboBox<String> cbRoute; 
-   // private ComboBox<String> cbLane;    
+    // private ComboBox<String> cbLane;     
     private ComboBox<String> cbType;    
     private ComboBox<String> cbColor;   
     private Slider sliderSpeed;
@@ -52,12 +52,14 @@ public class ControlPanel extends VBox {
     }
 
     private void initializeUI() {
-        // Style global sombre
-        this.setStyle("-fx-background-color: linear-gradient(to bottom, #2b2b2b, #1a1a1a);");
-        setPadding(new Insets(15));
-        setSpacing(10);
-        setAlignment(Pos.TOP_CENTER);
-        // La largeur est gérée par le conteneur parent (SplitPane)
+        // Create an inner VBox to hold the content
+        VBox content = new VBox();
+        
+        // Apply styles to the inner content VBox instead of 'this'
+        content.setStyle("-fx-background-color: linear-gradient(to bottom, #2b2b2b, #1a1a1a);");
+        content.setPadding(new Insets(15));
+        content.setSpacing(10);
+        content.setAlignment(Pos.TOP_CENTER);
         
         // --- HEADER ---
         HBox header = new HBox(10);
@@ -170,7 +172,16 @@ public class ControlPanel extends VBox {
             smartBtns
         );
         
-        getChildren().addAll(header, lblTime, vehicleCard, tlCard);
+        // Add components to the inner VBox
+        content.getChildren().addAll(header, lblTime, vehicleCard, tlCard);
+        
+        // Configure the ScrollPane (this)
+        this.setContent(content);
+        this.setFitToWidth(true); // Content stretches to ScrollPane width
+        this.setHbarPolicy(ScrollBarPolicy.NEVER); // No horizontal scrollbar
+        this.setVbarPolicy(ScrollBarPolicy.AS_NEEDED); // Vertical scrollbar as needed
+        this.setPannable(true); // Allow mouse drag scrolling
+        this.setStyle("-fx-background: #1a1a1a; -fx-border-color: transparent; -fx-control-inner-background: #1a1a1a;"); // Match background
         
         // Setup Logic Handlers
         setupVehicleHandlers(btnCreate, btnModify, btnDelete, btnSelect);

@@ -15,6 +15,7 @@ import it.polito.appeal.traci.SumoTraciConnection;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
 import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
+import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
 import de.frauas.group6.traffic.simulator.infrastructure.IEdge;
 import de.frauas.group6.traffic.simulator.view.IMapObserver;
 
@@ -41,6 +42,7 @@ public class SimulationEngine implements ISimulationEngine {
     private ITrafficLightManager trafficLightManager;
     private IInfrastructureManager infrastructureManager; 
     private IMapObserver mapObserver;
+    private IStatsCollector statsCollector ;
 
     private volatile boolean isRunning = false;
     private volatile boolean isPaused = false;
@@ -166,8 +168,9 @@ public class SimulationEngine implements ISimulationEngine {
             if (vehicleManager != null) vehicleManager.updateVehicles(); 
             if (trafficLightManager != null) trafficLightManager.updateTrafficLights();
             if (mapObserver != null) mapObserver.refresh();
-
-        } catch (Exception e) {
+            if (statsCollector!= null) statsCollector.collectData();
+            if (infrastructureManager!= null) {infrastructureManager.refreshEdgeData(); infrastructureManager.loadNetwork();}
+            	} catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Error in simulation step", e);
             stop(); 
         }
@@ -247,7 +250,8 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
     
-    public String getVehicleIdAtPosition(double x, double y, double radius) {
+    @SuppressWarnings("unchecked")
+	public String getVehicleIdAtPosition(double x, double y, double radius) {
         synchronized (traciLock) {
             try {
                 List<String> ids = (List<String>) connection.do_job_get(Vehicle.getIDList());
@@ -548,4 +552,5 @@ public class SimulationEngine implements ISimulationEngine {
     public void setTrafficLightManager(ITrafficLightManager tlm) { this.trafficLightManager = tlm; }
     public void setInfrastructureManager(IInfrastructureManager infraManager) { this.infrastructureManager = infraManager; }
     public void setMapObserver(IMapObserver mo) { this.mapObserver = mo; }
+    public void setStatCollector(IStatsCollector sc) {this.statsCollector = sc;}
 }

@@ -139,7 +139,7 @@ public class MapView extends Pane {
         if (vehicleManager != null) {
             Collection<IVehicle> vehicles = vehicleManager.getAllVehicles();
             for (IVehicle v : vehicles) {
-                drawVehicle(gc, v);
+            	if (v.isIsVisible()) drawVehicle(gc, v);
             }
         }
     }

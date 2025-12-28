@@ -1,7 +1,10 @@
 package de.frauas.group6.traffic.simulator.core;
 
 import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
+import de.frauas.group6.traffic.simulator.analytics.StatsCollector;
+import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+import de.frauas.group6.traffic.simulator.infrastructure.InfrastructureManager;
 import de.frauas.group6.traffic.simulator.infrastructure.TrafficLightManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.vehicles.VehicleManager;
@@ -39,17 +42,21 @@ public class App {
             
             // Member 3: Infrastructure (Traffic Lights) - Placeholder if not ready
             ITrafficLightManager lightMgr = new TrafficLightManager(engine);
+            IInfrastructureManager infraMgr = new InfrastructureManager(engine);
+         // Member 5:
+            IStatsCollector statsCollector = new StatsCollector(vehicleMgr,infraMgr,lightMgr,engine);
             
             
             
-            // Member 5: Stats - Placeholder if not ready
-             IStatsCollector statsCollector = null;
 
             // ------------------------------------------------------------
             // 3. Dependency Injection (Wiring)
             // ------------------------------------------------------------
             engine.setVehicleManager(vehicleMgr);
             engine.setTrafficLightManager(lightMgr);
+            engine.setStatCollector(statsCollector);
+            engine.setInfrastructureManager(infraMgr);
+         
          
             // engine.setStatsCollector(statsCollector);
 
