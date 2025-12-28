@@ -136,7 +136,7 @@ public class StatsCollector implements IStatsCollector {
                 //For the Real-Time Dashboard
                 currentStepCongestion.put(edgeId, count);
 
-                // For the Final Report (Historical Maximum)
+                // For the Final Report (Historical Maximum)	
                 int previousMax = congestionList.getOrDefault(edgeId, 0);
                 if (count > previousMax) {
                     congestionList.put(edgeId, count);
