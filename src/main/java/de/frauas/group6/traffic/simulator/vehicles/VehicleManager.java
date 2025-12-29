@@ -15,7 +15,7 @@ import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
  * Manages the lifecycle of vehicles in the simulation.
  * Handles injection, modification, deletion, and synchronization with the SUMO engine.
  */
-public class VehicleManager implements IVehicleManager {
+public  class VehicleManager implements IVehicleManager {
 
     private ISimulationEngine SumolationEngine;
     private Map<String, IVehicle> Vehicles;
@@ -38,13 +38,15 @@ public class VehicleManager implements IVehicleManager {
     /**
      * Injects vehicles into the simulation on a separate thread.
      */
-    public void injectVehicle(String edgeId, String lane, String VehicleType, String color, int number, double speed) {
+    public void injectVehicle(String RouteId, String VehicleType, String color, int number, double speed,String Currentcolor,double Currentspeed) {
         new Thread(() -> {
             String vehicleId;
             String TypeId = "";
             List<String> successfullyAddedIds = new ArrayList<>();
             byte edgeLane = 0;
             int r = 0, g = 0, b = 0;
+           boolean isvisible=false;
+           final double SPEED_TOLERANCE = 0.1;
 
             switch (color) {
                 case "Yellow": r = 255; g = 255; b = 0; break;
@@ -52,13 +54,7 @@ public class VehicleManager implements IVehicleManager {
                 case "Green":  r = 0;   g = 222; b = 0; break;
             }
 
-            // Lane logic configuration
-            if (edgeId.equals("E45")) {
-                if (lane.equals("middle")) { edgeLane = 1; }
-                else if (lane.equals("Left")) { edgeLane = 2; }
-            } else {
-                if (lane.equals("Left")) { edgeLane = 1; }
-            }
+           
 
             // Vehicle Type Mapping
             switch (VehicleType) {
@@ -68,17 +64,19 @@ public class VehicleManager implements IVehicleManager {
                 case "City-Bus":     TypeId = "BUS_TYPE"; break;
             }
 
-            // Route Mapping Logic
-            String routeid = "";
-            switch (edgeId) {
-                case "-E48": routeid = (edgeLane == 0) ? "R0" : "R1"; break;
-                case "E46":  routeid = (edgeLane == 0) ? "R2" : "R3"; break;
-                case "-E51": routeid = (edgeLane == 0) ? "R5" : "R6"; break;
-                case "E50":  routeid = (edgeLane == 0) ? "R7" : "R8"; break;
-                case "E45":  routeid = (edgeLane == 0) ? "R9" : (edgeLane == 1 ? "R10" : "R11"); break;
-                case "E49":  routeid = (edgeLane == 0) ? "R13" : "R12"; break;
+            
+            switch(Currentcolor) {
+            
+            case "All": { if( Math.abs(speed-Currentspeed)<=SPEED_TOLERANCE|| Currentspeed <= SPEED_TOLERANCE) {isvisible=true;}  }
+            break;
+            
+            default:{ if(color.equals(Currentcolor) || Math.abs(speed-Currentspeed)<SPEED_TOLERANCE) { isvisible=true; }  }
+            break;
+            
+            
+            
             }
-
+           
             try {
                 // Synchronize on the Vehicles map to ensure thread safety during injection
                 synchronized (Vehicles) {
@@ -86,7 +84,7 @@ public class VehicleManager implements IVehicleManager {
                     for (int i = 0; i < number; i++) {
                         counter++;
                         vehicleId = "VEH_" + counter;
-                        Vehicle newvehicle = new Vehicle(vehicleId, TypeId, speed, color, edgeId, edgeLane);
+                        Vehicle newvehicle = new Vehicle(vehicleId, TypeId, speed, color,"",(byte) 0,isvisible,RouteId);
 
                         // Extended Protection: Set creation time BEFORE adding to main map.
                         // This gives SUMO time (10s) to process the insertion queue.
@@ -96,7 +94,7 @@ public class VehicleManager implements IVehicleManager {
                         System.out.println("DEBUG: Car " + vehicleId + " added to map (size: " + Vehicles.size() + ")");
                         
                         // Spawn in SUMO
-                        SumolationEngine.spawnVehicle(vehicleId, routeid, edgeLane, TypeId, r, g, b, speed);
+                        SumolationEngine.spawnVehicle(vehicleId,RouteId, edgeLane, TypeId, r, g, b, speed);
                         
                         successfullyAddedIds.add(vehicleId);
                         
@@ -215,7 +213,7 @@ public class VehicleManager implements IVehicleManager {
             else {
                 Long createdAt = creationTimes.get(id);
 
-                // Grace period: 100 seconds (100000ms)
+                // Grace period: 10 seconds (10000ms)
                 // Allows SUMO to queue insertions if the entry lane is blocked.
                 if (createdAt != null && (now - createdAt) < 100000) {
                     return false; // KEEP (Waiting for SUMO insertion)
@@ -234,4 +232,37 @@ public class VehicleManager implements IVehicleManager {
     public Collection<IVehicle> getAllVehicles() {
         return this.Vehicles.values();
     }
+    
+    
+    //Filter Methode 
+    
+   public void SelectVehicle(String Currentcolor, double Currentspeed)
+    { final double SPEED_TOLERANCE =0.1;
+    synchronized (Vehicles) {
+        if(!(Currentcolor.equals("All"))) {
+    	for(  IVehicle V: Vehicles.values()) {
+    		
+    		 if(V.getColor().equals(Currentcolor) && Math.abs((V.getSpeed())-Currentspeed)<=SPEED_TOLERANCE) {
+    			 V.setIsvisible(true);
+    		 }
+    		 
+    		 else {   V.setIsvisible(false); }
+    	}
+    	
+        }
+    	else {
+    		for(  IVehicle V: Vehicles.values()) {
+    			if(Math.abs((V.getSpeed())-Currentspeed)<=SPEED_TOLERANCE) {
+    			V.setIsvisible(true);
+    			}
+    			
+    			else {
+    				V.setIsvisible(false);
+    			}
+    		}
+    	}
+    }
+    	
+    }
+   
 }

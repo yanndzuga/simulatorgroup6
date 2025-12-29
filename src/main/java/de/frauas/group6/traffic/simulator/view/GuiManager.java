@@ -1,8 +1,9 @@
 package de.frauas.group6.traffic.simulator.view;
 
-	import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
-import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
-import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
+	import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
+    import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
+    import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+    import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	import javafx.application.Application;
 	import javafx.application.Platform;
 	import javafx.scene.Scene;
@@ -18,23 +19,24 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 
 	    private static ISimulationEngine staticEngine;
 	    private static IVehicleManager staticVehicleManager; // Nécessaire pour le ControlPanel
-	    private static ITrafficLightManager staticTrafficLightManage;
+	    private static ITrafficLightManager staticTrafficLightManager;
+	    private static IStatsCollector staticStatsCollector;
 	    
 	    private ISimulationEngine engine;
 	    private IVehicleManager vehicleManager;
-	    private ITrafficLightManager TrafficLightManage;
+	    private ITrafficLightManager trafficLightManager;
+	    private IStatsCollector statsCollector;
 	    
 	    private MapView mapView;
 	    private ControlPanel controlPanel;
-	    
-	    // Placeholder pour le travail de ton collègue
-	    private VBox dashboardPlaceholder; 
+	    private DashBoard dashboard; 
 
 	    // Méthode statique pour lancer l'UI depuis le Main
-	    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager TrafficLightManager) {
+	    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager trafficLightManager,IStatsCollector statsCollector) {
 	        staticEngine = engineInstance;
 	        staticVehicleManager = vmInstance;
-	        staticTrafficLightManage =  TrafficLightManager;
+	        staticTrafficLightManager =  trafficLightManager;
+	        staticStatsCollector = statsCollector;
 	        new Thread(() -> Application.launch(GuiManager.class)).start();
 	    }
 
@@ -42,8 +44,8 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	    public void start(Stage primaryStage) {
 	        this.engine = staticEngine;
 	        this.vehicleManager = staticVehicleManager;
-	        this.TrafficLightManage = staticTrafficLightManage;
-	        
+	        this.trafficLightManager = staticTrafficLightManager;
+	        this.statsCollector = staticStatsCollector;
 	        BorderPane root = new BorderPane();
 	        
 	        // 1. CENTRE : La Carte (MapView)
@@ -57,14 +59,13 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	        sidebar.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #cccccc; -fx-border-width: 0 0 0 1;");
 	        
 	        // A. Ton ControlPanel
-	        this.controlPanel = new ControlPanel(engine, vehicleManager,TrafficLightManage);
+	        this.controlPanel = new ControlPanel(engine, vehicleManager,trafficLightManager);
 	        
 	        // B. Le Dashboard de ton collègue (Placeholder)
-	        this.dashboardPlaceholder = new VBox();
-	        dashboardPlaceholder.setPrefHeight(300);
+	        this.dashboard = new DashBoard(engine,statsCollector);
 	        // dashboardPlaceholder.getChildren().add(new Label("Espace réservé au Dashboard"));
 	        
-	        sidebar.getChildren().addAll(controlPanel, dashboardPlaceholder);
+	        sidebar.getChildren().addAll(controlPanel);
 	        root.setRight(sidebar);
 
 	        // Connexion : Quand on clique sur une voiture, le ControlPanel se remplit
@@ -92,6 +93,8 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	        Platform.runLater(() -> {
 	            if (mapView != null) mapView.render();
 	            if (controlPanel != null) controlPanel.updateRealTimeData();
+	            //if (dashboard != null)  dashboard.update(); 
+	            
 	        });
 	    }
 	}

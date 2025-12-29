@@ -1,5 +1,6 @@
 package de.frauas.group6.traffic.simulator.infrastructure;
 
+import java.awt.geom.Point2D;
 import java.util.List;
 
 public interface ITrafficLight {
@@ -14,4 +15,5 @@ public interface ITrafficLight {
     void setCurrentState(String state);
     void setRemainingTime(long time);
     void setControlledLanes(List<String> lanes);
+	Point2D getPosition();
 }
