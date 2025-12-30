@@ -122,20 +122,22 @@ public class MapView extends Pane {
         double w = getWidth();
         double h = getHeight();
 
-        // 1. Background (Ground)
-        gc.setFill(Color.web("#222222")); 
+        // 1. Background: Dark Grass Green (GTA2 Style)
+        gc.setFill(Color.web("#1e2b1e")); 
         gc.fillRect(0, 0, w, h);
+        
+        // 2. Draw Grid Lines (Map Texture)
+        drawGrid(gc, w, h);
 
         if (engine == null) return;
 
-        // 2. Infrastructure (Roads & Junctions)
+        // 3. Infrastructure
         drawInfrastructure(gc);
 
-        // 3. Traffic Lights (Drawn above roads but below vehicles for visibility - or above vehicles?)
-        // Currently drawing them before vehicles.
+        // 4. Traffic Lights
         drawDetailedTrafficLights(gc);
 
-        // 4. Vehicles
+        // 5. Vehicles
         if (vehicleManager != null) {
             Collection<IVehicle> vehicles = vehicleManager.getAllVehicles();
             for (IVehicle v : vehicles) {
@@ -143,7 +145,36 @@ public class MapView extends Pane {
             }
         }
     }
-    
+
+    // ADD this new helper method right below render():
+    private void drawGrid(GraphicsContext gc, double w, double h) {
+        gc.setStroke(Color.web("#2a3d2a")); // Lighter green for grid
+        gc.setLineWidth(1.0);
+        
+        // Draw a grid line every 50 meters
+        double gridSize = 50.0; 
+        
+        // Calculate visible range (Optimization)
+        double startX = -offsetX / scale;
+        double endX = (w - offsetX) / scale;
+        double startY = (offsetY - h) / scale; // JavaFX Y is inverted
+        double endY = offsetY / scale;
+
+        // Snap to grid
+        double firstLineX = Math.floor(startX / gridSize) * gridSize;
+        double firstLineY = Math.floor(startY / gridSize) * gridSize;
+
+        // Vertical Lines
+        for (double x = firstLineX; x < endX; x += gridSize) {
+            double px = tx(x);
+            gc.strokeLine(px, 0, px, h);
+        }
+        // Horizontal Lines
+        for (double y = firstLineY; y < endY; y += gridSize) {
+            double py = ty(y);
+            gc.strokeLine(0, py, w, py);
+        }
+    }
     /**
      * Draws the road network including edges and junctions.
      */
@@ -335,26 +366,43 @@ public class MapView extends Pane {
 
     private void drawVehicle(GraphicsContext gc, IVehicle v) {
         Point2D pos = v.getPosition();
-        if(pos == null) return;
-        
+        if (pos == null) return;
+
         double x = tx(pos.getX());
         double y = ty(pos.getY());
         
+        // Get angle from engine (0 is North)
+        double angle = engine.getVehicleAngle(v.getId());
+
+        // Proportions: Make them look like cars (Length > Width)
+        double carWidth = 3 * scale; 
+        double carLength = 10 * scale; 
+
         String colorStr = v.getColor();
-        Color c = Color.WHITE; 
-        if(colorStr != null) {
-            switch(colorStr) {
-                case "Rot": case "Red": c = Color.web("#ff4444"); break;
-                case "Green": c = Color.web("#44ff44"); break;
-                case "Yellow": c = Color.web("#ffff44"); break;
-            }
-        }
+        Color c = Color.web("#ff4444"); // Default Red
+        // ... (Keep your existing color switch logic here) ...
+
+        gc.save(); 
+        gc.translate(x, y);
         
-        // Simple but clean vehicle drawing
+        // FIX: JavaFX rotates from East, SUMO from North. 
+        // Usually, we don't need to subtract 90 if the rectangle is drawn vertically.
+        gc.rotate(angle); 
+
+        // Draw Chassis: Centered at (0,0)
         gc.setFill(c);
-        double w = 5 * scale;
-        double l = 9 * scale;
-        gc.fillRoundRect(x - w/2, y - l/2, w, l, 2, 2);
+        // Draw the car so it is LONG on the Y axis
+        gc.fillRoundRect(-carWidth/2, -carLength/2, carWidth, carLength, 2, 2);
+
+        // Draw Roof (GTA2 Style)
+        gc.setFill(c.darker());
+        gc.fillRoundRect(-carWidth/2 + 0.5, -carLength/6, carWidth - 1, carLength/2.5, 1, 1);
+
+        // Windshield (Black strip at the FRONT - which is the top of the rect)
+        gc.setFill(Color.BLACK);
+        gc.fillRect(-carWidth/2 + 0.5, -carLength/2 + 1, carWidth - 1, 1.5);
+
+        gc.restore(); 
     }
     
     // --- UTILITIES ---

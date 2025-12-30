@@ -47,7 +47,7 @@ public class SimulationEngine implements ISimulationEngine {
     
     private Thread simulationThread;
     
-    private final int SIMULATION_STEP_SIZE = 1000; 
+    private final int SIMULATION_STEP_SIZE = 100; 
     private final String configFile = "src/main/resources/meine_sim.sumocfg"; 
     private String sumoBin; 
 
@@ -73,6 +73,10 @@ public class SimulationEngine implements ISimulationEngine {
         try {
             LOGGER.info("Initializing SUMO connection...");
             connection.addOption("start", "true"); 
+            
+            // ADD THIS LINE: This tells SUMO to use 0.1s increments
+            connection.addOption("step-length", "0.1"); 
+            
             connection.runServer();
             LOGGER.info("SUMO Connected.");
         } catch (Exception e) {
@@ -266,7 +270,17 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
- 
+    @Override
+    public double getVehicleAngle(String vehicleId) {
+        synchronized (traciLock) {
+            try {
+                // This pulls the real-time heading from SUMO
+                return (double) connection.do_job_get(de.tudresden.sumo.cmd.Vehicle.getAngle(vehicleId));
+            } catch (Exception e) { 
+                return 0.0; 
+            }
+        }
+    }
 
     /**
      * Retrieves the list of all Traffic Light IDs from SUMO.

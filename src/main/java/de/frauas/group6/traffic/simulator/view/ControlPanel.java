@@ -188,6 +188,19 @@ public class ControlPanel extends VBox {
         // Setup Logic Handlers
         setupVehicleHandlers(btnCreate, btnModify, btnDelete);
         setupTrafficLightHandlers(btnGreen, btnRed);
+// --- APPLY FINESSE TO ALL BUTTONS ---
+        
+        // Standard Glow (No Pulse)
+        applyButtonFinesse(btnPlay, false);
+        applyButtonFinesse(btnPause, false);
+        applyButtonFinesse(btnStep, false);
+        applyButtonFinesse(btnCreate, false);
+        applyButtonFinesse(btnModify, false);
+        applyButtonFinesse(btnDelete, false);
+        
+        // Danger/Override Glow (With Pulse)
+        applyButtonFinesse(btnGreen, true);
+        applyButtonFinesse(btnRed, true);;
     }
     
     // --- PUBLIC INTERACTION METHODS ---
@@ -393,4 +406,35 @@ public class ControlPanel extends VBox {
         l.setFont(Font.font(10));
         return l;
     }
+   private void applyButtonFinesse(Button b, boolean shouldPulse) {
+    String originalStyle = b.getStyle();
+    
+    // Create the pulse animation
+    javafx.animation.ScaleTransition pulse = new javafx.animation.ScaleTransition(javafx.util.Duration.millis(600), b);
+    pulse.setToX(1.15); // Scale slightly larger than standard hover
+    pulse.setToY(1.15);
+    pulse.setCycleCount(javafx.animation.Animation.INDEFINITE);
+    pulse.setAutoReverse(true);
+
+    b.setOnMouseEntered(e -> {
+        // Standard Grow & Glow
+        b.setScaleX(1.1); 
+        b.setScaleY(1.1);
+        b.setStyle(originalStyle + "-fx-effect: dropshadow(gaussian, rgba(0, 229, 255, 0.8), 15, 0.5, 0, 0);");
+        
+        // Start pulsing if requested
+        if (shouldPulse) {
+            pulse.playFromStart();
+        }
+    });
+
+    b.setOnMouseExited(e -> {
+        if (shouldPulse) {
+            pulse.stop();
+        }
+        b.setScaleX(1.0);
+        b.setScaleY(1.0);
+        b.setStyle(originalStyle);
+    });
+}
 }
