@@ -27,8 +27,7 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	    private MapView mapView;
 	    private ControlPanel controlPanel;
 	    
-	    // Placeholder pour le travail de ton collègue
-	    private VBox dashboardPlaceholder; 
+	    private DashboardPanel dashboardPanel;
 
 	    // Méthode statique pour lancer l'UI depuis le Main
 	    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager TrafficLightManager) {
@@ -60,11 +59,11 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	        this.controlPanel = new ControlPanel(engine, vehicleManager,TrafficLightManage);
 	        
 	        // B. Le Dashboard de ton collègue (Placeholder)
-	        this.dashboardPlaceholder = new VBox();
-	        dashboardPlaceholder.setPrefHeight(300);
+	        this.dashboardPanel = new DashboardPanel(engine);
+	        dashboardPanel.setPrefHeight(300);
 	        // dashboardPlaceholder.getChildren().add(new Label("Espace réservé au Dashboard"));
 	        
-	        sidebar.getChildren().addAll(controlPanel, dashboardPlaceholder);
+	        sidebar.getChildren().addAll(controlPanel, dashboardPanel);
 	        root.setRight(sidebar);
 
 	        // Connexion : Quand on clique sur une voiture, le ControlPanel se remplit
@@ -92,6 +91,7 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 	        Platform.runLater(() -> {
 	            if (mapView != null) mapView.render();
 	            if (controlPanel != null) controlPanel.updateRealTimeData();
+	            if (dashboardPanel != null) dashboardPanel.update();
 	        });
 	    }
 	}
