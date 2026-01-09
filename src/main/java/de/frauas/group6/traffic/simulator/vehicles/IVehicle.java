@@ -15,6 +15,7 @@ public interface IVehicle {
 	boolean isIsVisible();
 	String  getRouteId();
 
+
 	
 	void setColor(String newColor);
 	void setSpeed(double newSpeed);
