@@ -1,4 +1,10 @@
 package de.frauas.group6.traffic.simulator.analytics;
+import java.io.File;
+import java.util.List;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 // --- Java utility and concurrency classes (collections, maps, Logging) ---
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -14,13 +20,36 @@ import com.lowagie.text.pdf.PdfWriter;
 // --- Date and time utilities for report timestamps ---
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+// --- Chart generation and PDF image support (JFreeChart + OpenPDF) ---
+import com.lowagie.text.Image;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.CategoryPlot;
+import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.axis.NumberTickUnit;
+import org.jfree.data.category.DefaultCategoryDataset;
+import org.jfree.chart.plot.PlotOrientation;
+// --- Java image rendering and in-memory I/O ---
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+import java.io.ByteArrayOutputStream;
+// --- Number formatting for chart axes ---
+import java.text.DecimalFormat;
+import org.jfree.chart.renderer.category.BarRenderer;
+import java.awt.Color;
+import org.jfree.chart.renderer.category.StandardBarPainter;
+import java.awt.BasicStroke;
+// --- PDF Table ---
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.Font;
 // --- Simulation core and domain interfaces ---
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicle;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.infrastructure.IEdge;
 import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
-import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
 
 public class StatsCollector implements IStatsCollector {
 	
@@ -38,22 +67,12 @@ public class StatsCollector implements IStatsCollector {
 	private final Map<String, Integer> congestionList = new HashMap<>();
 	private final Map<String, Integer> currentStepCongestion = new HashMap<>();
 	
-	private void initRoutesManually() {
-		routeEdges.put("R0", List.of("-E48", "-E47", "-E49"));
-		routeEdges.put("R1", List.of("-E48", "-E45"));
-		routeEdges.put("R2", List.of("E46", "-E47", "-E49"));
-		routeEdges.put("R3", List.of("E46", "E48"));
-		routeEdges.put("R4", List.of("E46", "E45"));
-		routeEdges.put("R5", List.of("-E51", "-E49"));
-		routeEdges.put("R6", List.of("-E51", "-E50"));
-		routeEdges.put("R7", List.of("E50", "E47", "E48"));
-		routeEdges.put("R8", List.of("E50", "E51"));
-		routeEdges.put("R9", List.of("E45", "E48"));
-		routeEdges.put("R10", List.of("E45", "-E46"));
-		routeEdges.put("R11", List.of("E45", "-E47", "E49"));
-		routeEdges.put("R12", List.of("E49", "E47", "E48"));
-		routeEdges.put("R13", List.of("E49", "-E50"));
+	private void initRoutesFromInfrastructure(String resourceName) {
+		// Routes, Edges
+	   Map<String, List<String>> routes = infrastructureManager.loadRoutes(resourceName);
+	   routeEdges.putAll(routes);
 	}
+
 	private void initAvgTravelTimeRouteList() {
 	    for (String routeId : routeEdges.keySet()) {
 	        TravelTimeRouteList.put(routeId, new ArrayList<>());
@@ -63,14 +82,12 @@ public class StatsCollector implements IStatsCollector {
 
 	private final IVehicleManager vehicleManager;
 	private final IInfrastructureManager infrastructureManager;
-	private final ITrafficLightManager trafficLightManager;
 	private final ISimulationEngine simulationEngine;
-	public StatsCollector(IVehicleManager vehicleManager, IInfrastructureManager infrastructureManager,ITrafficLightManager trafficLightManager, ISimulationEngine simulationEngine) {
+	public StatsCollector(IVehicleManager vehicleManager, IInfrastructureManager infrastructureManager, ISimulationEngine simulationEngine) {
 		this.vehicleManager = vehicleManager;
 	    this.infrastructureManager = infrastructureManager;
-	    this.trafficLightManager = trafficLightManager;
 	    this.simulationEngine = simulationEngine;
-	    initRoutesManually();
+	    initRoutesFromInfrastructure("minimal.rou.xml");
 	    initAvgTravelTimeRouteList();       
 	}
 	
@@ -106,17 +123,15 @@ public class StatsCollector implements IStatsCollector {
 	    	int vehiclesOnEdge = simulationEngine.getEdgeVehicleCount(edgeId);
 	    	// Length of the edge 
 	    	double edgeLength = simulationEngine.getEdgeLength(edgeId);
-	    	
 	    	double densityThisStep = 0.0;
 	    	if (edgeLength > 0) { densityThisStep = (double) vehiclesOnEdge / edgeLength; }
 	    	// Store density per edge and per step
 	    	edgeDensityPerStepList.computeIfAbsent(edgeId, k -> new ArrayList<>()).add(densityThisStep);
 		}
 	}
-	
-	
 
-	// OPTIMISATION Yann  
+	// Identifies congested edges by counting stopped vehicles per edge
+	// and updates current and historical congestion statistics.
     private void detectCongestion(Collection<IVehicle> vehicles) {
         // 1.Reset instant congestion for this step
         currentStepCongestion.clear();
@@ -151,7 +166,7 @@ public class StatsCollector implements IStatsCollector {
 	
 	private static final Logger LOGGER =Logger.getLogger(StatsCollector.class.getName());
 	private int currentStep = 0;
-	private static int MIN_STOPPED_VEHICLES = 3;
+	private static final int MIN_STOPPED_VEHICLES = 3;
 
 	//===========================
 	// COLLECT DATA PER STEP
@@ -194,8 +209,6 @@ public void collectData() {
 	    collectEdgeDensity();
 	    // Detect congested edges for this step
 	    detectCongestion(vehicles);
-	    
-	    allAverageTravelTimesPerRoute();
 	  
 	} catch (Exception e) {
 		LOGGER.warning("StatsCollector: error during collectData() at step " + currentStep + " : " + e.getMessage());
@@ -221,56 +234,109 @@ public void collectData() {
      return new ArrayList<>(avgSpeedPerStep.values());
  }
  
- private void exportAverageSpeedInternal(PrintWriter writer, ExportFilter filter, boolean forPdf) {
+ private Map<String, Double> calculateAverageSpeedPerEdge (ExportFilter filter) {
+	 
+	 Map<String, Double> result = new LinkedHashMap<>();
+	 // --- Relevant filters for speed ---
+	 boolean filterByColor = filter != null && filter.hasVehicleColorFilter();
+	 boolean filterByEdge = filter != null && filter.hasOnlyEdgeIdFilter();
+	 boolean filterByCongested = filter != null && filter.hasOnlyCongestedEdgesFilter();
+	// --- Iterate over all edges ---
+    for (IEdge edge : infrastructureManager.getAllEdges()) {
+        String edgeId = edge.getId();
 
-	    // --- Relevant filters for speed ---
-	    boolean filterByColor = filter != null && filter.hasVehicleColorFilter();
-	    boolean filterByEdge = filter != null && filter.hasOnlyEdgeIdFilter();
+        // If a specific edge is requested, skip others
+        if (filterByEdge && !edgeId.equals(filter.getOnlyEdgeId())) continue;
+        if (filterByCongested && !congestionList.containsKey(edgeId)) continue;
+        
+        double sum = 0.0;
+        int count = 0;
+        // --- Iterate over all vehicles ---
+        for (String vehicleId : speedPerVehiclePerStep.keySet()) {
+            IVehicle vehicle = vehicleById.get(vehicleId);
+            if (vehicle == null) continue;
+         
+            // Apply vehicle color filter (if any)
+            if (filterByColor && !vehicle.getColor().trim().equalsIgnoreCase(filter.getVehicleColor().trim())) { continue; }
 
-	    // --- Header / title ---
-	    if (!forPdf) { writer.println("EdgeId,AverageSpeed(m/s)"); }
-	    else { writer.println("Average Speed per Edge"); }
+            List<Double> speeds = speedPerVehiclePerStep.get(vehicleId);
+            List<String> edges  = edgePerVehiclePerStep.get(vehicleId);
 
-	    // --- Iterate over all edges ---
-	    for (IEdge edge : infrastructureManager.getAllEdges()) {
-	        String edgeId = edge.getId();
-
-	        // If a specific edge is requested, skip others
-	        if (filterByEdge && !edgeId.equals(filter.getOnlyEdgeId())) { continue; }
-
-	        double sum = 0.0;
-	        int count = 0;
-	        // --- Iterate over all vehicles ---
-	        for (String vehicleId : speedPerVehiclePerStep.keySet()) {
-	            IVehicle vehicle = vehicleById.get(vehicleId);
-	            if (vehicle == null) continue;
-	            // Apply vehicle color filter (if any)
-	            if (filterByColor && !vehicle.getColor().equals(filter.getVehicleColor())) { continue; }
-
-	            List<Double> speeds = speedPerVehiclePerStep.get(vehicleId);
-	            List<String> edges  = edgePerVehiclePerStep.get(vehicleId);
-
-	            if (speeds == null || edges == null) continue;
-	            // Iterate only while both lists have values
-	            int steps = Math.min(speeds.size(), edges.size());
-	            // --- Accumulate speeds for this edge ---
-	            for (int i = 0; i < steps; i++) {
-	                if (!edgeId.equals(edges.get(i))) continue;
-	                double speed = speeds.get(i);
-	                if (speed > 0.0) {
-	                    sum += speed;
-	                    count++;
-	                }
-	            }
-	        }
+            if (speeds == null || edges == null) continue;
+            // Iterate only while both lists have values
+            int steps = Math.min(speeds.size(), edges.size());
+            // --- Accumulate speeds for this edge ---
+            for (int i = 0; i < steps; i++) {
+                if (!edgeId.equals(edges.get(i))) continue;
+                double speed = speeds.get(i);
+                if (speed > 0.0) {
+                    sum += speed;
+                    count++;
+                }
+            }
+	     }
 
 	        double avgSpeed = count > 0 ? sum / count : 0.0;
-	        // --- Output ---
-	        if (!forPdf) {writer.println(edgeId + "," + String.format(Locale.US, "%.2f", avgSpeed));
-	        } else { writer.println("Edge " + edgeId +" average speed: " + String.format(Locale.US, "%.2f m/s", avgSpeed)); }
-	    }
-	}
+	        result.put(edgeId, avgSpeed);
+     }
+    	return result;
+ }
+ 
+ private void exportAverageSpeedInternal(PrintWriter writer, Map<String, Double> data, boolean forPdf) {
+	// --- Header / title ---
+	if (!forPdf) { writer.println("EdgeId,AverageSpeed(m/s)"); }
+	else { writer.println("Average Speed per Edge"); }
+	
+	data.forEach((edgeId,avgSpeed) -> {
+	    // --- Output ---
+	    if (!forPdf) {writer.println(edgeId + "," + String.format(Locale.US, "%.2f", avgSpeed));
+	    } else if (avgSpeed != 0){ writer.println("Edge " + edgeId +" average speed: " + String.format(Locale.US, "%.2f m/s", avgSpeed)); }
+	});
+}
+ 
+//Builds a bar chart image for the average speed per edge.
+//The data is assumed to be already calculated and filtered.
+ private Image buildAverageSpeedBarChart(Map<String, Double> data) throws Exception {
 
+     // Create dataset for a bar chart (category-based)
+     DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+
+     // Fill dataset: edgeId -> avgSpeed
+     data.forEach((edgeId, avgSpeed) -> dataset.addValue(avgSpeed, "Average Speed", edgeId));
+
+     // Create the bar chart
+     JFreeChart chart = ChartFactory.createBarChart(
+             "Average Speed per Edge",     // chart title
+             "Edge ID",                    // X-axis label
+             "Average Speed (m/s)",        // Y-axis label
+             dataset
+     );
+
+     // Access the plot area (contains axes and bars)
+     CategoryPlot plot = chart.getCategoryPlot();
+     // Configure Y-axis (range axis)
+     NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
+     // Set lower bound to zero (speed cannot be negative)
+     yAxis.setLowerBound(0.0);
+     yAxis.setMinorTickMarksVisible(true);
+	 yAxis.setMinorTickCount(5);
+	 plot.setRangeMinorGridlinesVisible(true);
+	 plot.setRangeMinorGridlinePaint(new Color(220, 220, 220));
+	 plot.setRangeGridlinePaint(Color.WHITE);
+	 plot.setRangeGridlineStroke(new BasicStroke(1f));
+     // Define tick interval: 0.0, 1.0, 2.0, 3.0...
+     yAxis.setTickUnit(new NumberTickUnit(1.0));
+     // Format tick labels to always show one decimal place
+     yAxis.setNumberFormatOverride(new DecimalFormat("0.0"));
+     // Render chart to an in-memory image
+     BufferedImage image = chart.createBufferedImage(550,380);
+     // Convert BufferedImage to PNG stored in memory
+     ByteArrayOutputStream baos = new ByteArrayOutputStream();
+     ImageIO.write(image, "png", baos);
+
+     // Convert PNG bytes to OpenPDF Image and return
+     return Image.getInstance(baos.toByteArray());
+ }
 
  
 	//===============================
@@ -319,34 +385,113 @@ public void collectData() {
 	 // Return average travel time per route
      return new HashMap<>(avgTravelTimeRoute);
  }
-
- private void exportAverageTravelTimeInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
-	 
+ private Map<String, Double> calculateAverageTravelTimePerRoute(ExportFilter filter) {
 	 allAverageTravelTimesPerRoute();
-	 if (!forPdf) {
-	     writer.println("RouteId,RouteEdges,AverageTravelTime(s)");
-	 } else { writer.println("Average Travel Time per Route"); }
+	 Map<String, Double> result = new LinkedHashMap<>();
 	 
 	 boolean filterByRouteId = filter != null && filter.hasOnlyRouteIdFilter();
 	 boolean filterByMinAvgTime = filter != null && filter.hasMinAverageTravelTimeFilter();
-	 boolean anyRoutePrinted = false;
 	 for (String routeId : routeEdges.keySet()) {
 		 double avgTime = avgTravelTimeRoute.get(routeId);
 		 
 		// -----------------Filter-----------------
     	 if (filterByRouteId && !routeId.equals(filter.getOnlyRouteId())) { continue; }
     	 if (filterByMinAvgTime && avgTime < filter.getMinAverageTravelTime()) { continue; }
+    	 
+    	 result.put(routeId, avgTime);
+	 }
+	 return result;
+ }
+ // Returns a rounded upper bound for chart axes to avoid awkward max values like 17.3 or 22.7...
+ private double calculateNiceUpperBound(double maxValue) {
+
+	    if (maxValue <= 10) return 10;
+	    if (maxValue <= 20) return 20;
+	    if (maxValue <= 30) return 30;
+	    if (maxValue <= 40) return 40;
+	    if (maxValue <= 50) return 50;
+	    if (maxValue <= 60) return 60;
+	    if (maxValue <= 70) return 70;
+	    if (maxValue <= 80) return 80;
+	    if (maxValue <= 90) return 90;
+
+	    return Math.ceil(maxValue / 10.0) * 10;
+ }
+ private void exportAverageTravelTimeInternal (PrintWriter writer,  Map<String, Double> data, boolean forPdf) {
+	 
+	 if (!forPdf) {
+	     writer.println("RouteId,RouteEdges,AverageTravelTime(s)");
+	 } else { writer.println("Average Travel Time per Route"); }
+	 
+	 boolean anyRoutePrinted = false;
+	 for (Map.Entry<String, Double> entry : data.entrySet()) {
+		 String routeId = entry.getKey();
+		 double avgTime = entry.getValue();
+		 
     	 anyRoutePrinted = true;
     	 List<String> edges = routeEdges.get(routeId);
     	 String edgesFormatted = "(" + String.join(" ", edges) + ")";
     	 
     	 if (!forPdf) { writer.println(routeId + "," + edgesFormatted + "," +  String.format(Locale.US, "%.2f", avgTime)); }
-    	 else { writer.println("Route " + routeId + "  " + edgesFormatted + "  Avg travel time: " + String.format(Locale.US, "%.2f s", avgTime)); }
+    	 else if (avgTime != 0){ writer.println("Route " + routeId + "  " + edgesFormatted + "  Avg travel time: " + String.format(Locale.US, "%.2f s", avgTime)); }
     	 
 	 }
 	 if (forPdf && !anyRoutePrinted) { writer.println("No routes match the selected filters."); }
 }
+	
+ private Image buildAverageTravelTimeHorizontalBarChart(Map<String, Double> data) throws Exception {
+	 // Create dataset for horizontal bar chart
+	 DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+	 data.forEach((routeId, avgTime) -> {
+		// Build label: R0 (E45 E48 E49)
+		 List<String> edges = routeEdges.get(routeId);
+		 String label = routeId + " (" + String.join(" ", edges) + ")";
+		 dataset.addValue(avgTime, "Average Travel Time", label);
+	 });
 	 
+	// Create horizontal bar chart
+	 JFreeChart chart = ChartFactory.createBarChart(
+	            "Average Travel Time per Route",   // chart title
+	            "Route",         // X-axis label
+	            "Average Travel Time (s)",                           // Y-axis label
+	            dataset,
+	            PlotOrientation.HORIZONTAL,        // horizontal bars
+	            false,                             // legend
+	            true,
+	            false
+	    );
+	// Access plot
+	 CategoryPlot plot = chart.getCategoryPlot();
+	 BarRenderer renderer = (BarRenderer) plot.getRenderer();
+	 renderer.setSeriesPaint(0, Color.BLUE); // Blue
+	 renderer.setBarPainter(new StandardBarPainter());
+	 renderer.setDrawBarOutline(false);
+
+	// Configure X-axis (numeric axis)
+	 NumberAxis xAxis = (NumberAxis) plot.getRangeAxis();
+	// Ensure axis starts at zero
+	 xAxis.setLowerBound(0.0);
+	 xAxis.setMinorTickMarksVisible(true);
+	 xAxis.setMinorTickCount(5);
+	 plot.setRangeMinorGridlinesVisible(true);
+	 plot.setRangeMinorGridlinePaint(new Color(220, 220, 220));
+	 plot.setRangeGridlinePaint(Color.WHITE);
+	 plot.setRangeGridlineStroke(new BasicStroke(1f));
+	// Determine a nice upper bound for the axis
+	 double maxValue = data.values().stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
+	 double upperBound = calculateNiceUpperBound(maxValue);
+	 xAxis.setUpperBound(upperBound);   
+	// Format tick labels
+	 xAxis.setTickUnit(new NumberTickUnit(upperBound / 5.0));
+	 xAxis.setNumberFormatOverride(new DecimalFormat("0"));
+	// Render chart to image
+	 BufferedImage image = chart.createBufferedImage(400, 400);
+	 ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	 ImageIO.write(image, "png", baos); 
+	 
+	 return Image.getInstance(baos.toByteArray());
+	    
+ }
  	//=================
 	// EDGE DENSITY
 	//=================
@@ -370,20 +515,15 @@ public void collectData() {
      
      return new HashMap<>(edgeDensity);
  }
-
- private void exportEdgeDensityInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
-	 
-	 if (forPdf) { writer.println("Edge Density Summary"); } 
-	 else { writer.println("EdgeId,AverageDensity(veh/m)"); }
+ private Map<String, Double> calculateAverageEdgeDensity(ExportFilter filter) {
+	// Use the precomputed average edge density
+	 Map<String, Double> avgEdgeDensity = getEdgeDensity();
+	 Map<String, Double> result = new LinkedHashMap<>();
 	 
 	 boolean filterByEdgeId = filter != null && filter.hasOnlyEdgeIdFilter();
 	 boolean filterByMinDensity = filter != null && filter.hasMinEdgeDensityFilter();
 	 boolean filterByCongested = filter != null && filter.hasOnlyCongestedEdgesFilter();
 	 
-	 // Use the precomputed average edge density
-	 Map<String, Double> avgEdgeDensity = getEdgeDensity();
-	 
-	 boolean anyEdgePrinted = false;
 	 for (Map.Entry<String, Double> entry : avgEdgeDensity.entrySet()) {
 		 String edgeId = entry.getKey();
 		 double avgDensity = entry.getValue();
@@ -396,14 +536,64 @@ public void collectData() {
 		 boolean congestedEver = congestionList.containsKey(edgeId);
 		 // congestion filter
 		 if (filterByCongested && !congestedEver) { continue; }
+		 result.put(edgeId, avgDensity);
+	 }
+	 
+	 return result;
+ }
+ private void exportEdgeDensityInternal (PrintWriter writer, Map<String, Double> data, boolean forPdf) {
+	 
+	 if (forPdf) { writer.println("Edge Density Summary"); } 
+	 else { writer.println("EdgeId,AverageDensity(veh/m)"); }
+	 
+	 boolean anyEdgePrinted = false;
+	 for (Map.Entry<String, Double> entry : data.entrySet()) {
+		 String edgeId = entry.getKey();
+		 double avgDensity = entry.getValue();
+		 boolean congestedEver = congestionList.containsKey(edgeId);
 		 anyEdgePrinted = true;
-		 if(forPdf) { 
-			 writer.println("Edge " + edgeId + "  Average density: " + String.format(Locale.US, "%.2f veh/m", avgDensity) + (congestedEver ? " (congested)" : "")); }
-		 else {writer.println(edgeId + "," + String.format(Locale.US, "%.2f", avgDensity)); }
-	 }	 
+		 if(!forPdf) { 
+			 writer.println(edgeId + "," + String.format(Locale.US, "%.4f", avgDensity)); }
+		 else if (avgDensity > 0){writer.println("Edge " + edgeId + "  Average density: " + String.format(Locale.US, "%.4f veh/m", avgDensity) + (congestedEver ? " (congested)" : "")); }
+	 }
 	 if (forPdf && !anyEdgePrinted) { writer.println("No edges match the selected filters."); }
  }	 
  
+ private Image buildEdgeDensityBarChart(Map<String, Double> data) throws Exception {
+	 
+	 DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+	 data.forEach((edgeId, avgDensity) -> dataset.addValue(avgDensity, "Edge Density", edgeId));
+	 
+	 JFreeChart chart = ChartFactory.createBarChart(
+	            "Average Edge Density",
+	            "Edge ID",
+	            "Average Density (veh/m)",
+	            dataset
+	    );
+	 
+	 CategoryPlot plot = chart.getCategoryPlot();
+	 BarRenderer renderer = (BarRenderer) plot.getRenderer();
+	 renderer.setSeriesPaint(0, new Color(140, 100, 60)); 
+	 NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
+	 yAxis.setLowerBound(0.0);
+	 yAxis.setTickUnit(new NumberTickUnit(0.01));
+	 yAxis.setMinorTickMarksVisible(true);
+	 yAxis.setMinorTickCount(5);
+	 plot.setRangeMinorGridlinesVisible(true);
+	 plot.setRangeMinorGridlinePaint(new Color(220, 220, 220));
+	 plot.setRangeGridlinePaint(Color.WHITE);
+	 plot.setRangeGridlineStroke(new BasicStroke(1f));
+
+	 yAxis.setNumberFormatOverride(new DecimalFormat("0.00"));
+	 double max = data.values().stream().mapToDouble(Double::doubleValue).max().orElse(0.0);
+	 yAxis.setUpperBound(Math.ceil(max / 0.01) * 0.01);
+	 
+	 BufferedImage image = chart.createBufferedImage(550, 380);
+	 ByteArrayOutputStream baos = new ByteArrayOutputStream();
+	 ImageIO.write(image, "png", baos);
+	 
+	 return Image.getInstance(baos.toByteArray());
+ }
  	//====================
 	// CONGESTED EDGES
 	//==================== 
@@ -416,9 +606,7 @@ public void collectData() {
  private void exportCongestedEdgesInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
 	 
 	 writer.println(forPdf ? "Congested Edges" : "EdgeId,StoppedVehicles");
-	 
 	 boolean filterByEdgeId = filter != null && filter.hasOnlyEdgeIdFilter();
-	 boolean filterByCongested = filter != null && filter.hasOnlyCongestedEdgesFilter();
 	 
 	 boolean anyEdgePrinted = false;
 	 for (Map.Entry<String, Integer> entry : congestionList.entrySet()) {
@@ -427,11 +615,9 @@ public void collectData() {
 		 
 		 // onlyEdgeId filter
 		 if (filterByEdgeId && !edgeId.equals(filter.getOnlyEdgeId())) { continue; }
-		 // onlyCongestedEdges
-		 if (filterByCongested && stoppedVehicles < MIN_STOPPED_VEHICLES) { continue; }
 		 anyEdgePrinted = true;
 		 
-		 if (forPdf) { writer.println("Edge " + edgeId + " is congested (stopped vehicles: " + stoppedVehicles + ")"); }
+		 if (forPdf) { writer.println("Edge " + edgeId + " congested (stopped vehicles: " + stoppedVehicles + ")"); }
 		 else { writer.println(edgeId + "," + stoppedVehicles); }
 	 }
 	 if (forPdf && !anyEdgePrinted) { writer.println("No congested edges match the selected filters."); }
@@ -440,59 +626,98 @@ public void collectData() {
  	//=========================
 	// VEHICLE TRAVEL TIME
 	//=========================
+ 
+ private static class VehicleTravelRow {
+    String vehicleId;
+    String color;
+    String routeId;
+    double travelTime;
 
- private void exportVehicleTravelTimesInternal (PrintWriter writer, ExportFilter filter, boolean forPdf) {
-
-	if (forPdf) { writer.println("Vehicle Travel Times"); }
-	else { writer.println("vehicleId,color,routeId,travelTime(s)"); }
-
-	boolean filterByColor = filter != null && filter.hasVehicleColorFilter();
-    boolean filterByRoute =filter != null && filter.hasOnlyRouteIdFilter();
-	
-    boolean anyVehiclePrinted = false;
-    for (String vehicleId : exitTime.keySet()) {
-        Double enter = enterTime.get(vehicleId);
-        Double exit  = exitTime.get(vehicleId);
-
-        if (enter == null || exit == null || exit <= enter) { continue; }
-        double travelTime = exit - enter;
-        
-        IVehicle vehicle = vehicleById.get(vehicleId);
-        if (vehicle == null) { continue; }
-        
-        //--------------------FILTERS------------------
-        // vehicleColor filter
-        if (filterByColor && !vehicle.getColor().equals(filter.getVehicleColor())) { continue; }
-        // onlyRouteId filter
-        if (filterByRoute && !vehicle.getRouteId().equals(filter.getOnlyRouteId())) { continue; }
-        anyVehiclePrinted = true;
-
-        if (forPdf) { writer.println("Vehicle " + vehicleId + " Color: " + vehicle.getColor() + " Route: " + vehicle.getRouteId() + " Travel time: " + String.format(Locale.US, "%.2f s", travelTime)); }
-        else { writer.println(vehicleId + "," + vehicle.getColor() + "," + vehicle.getRouteId() + "," + String.format(Locale.US, "%.2f", travelTime)); }
+    VehicleTravelRow(String vehicleId, String color, String routeId, double travelTime) {
+        this.vehicleId = vehicleId;
+        this.color = color;
+        this.routeId = routeId;
+        this.travelTime = travelTime;
     }
-    if (forPdf && !anyVehiclePrinted) { writer.println("No vehicles match the selected filters."); } 
 }
+
+ private void exportVehicleTravelTimesInternal (PrintWriter writer,Document document, ExportFilter filter, boolean forPdf) throws Exception {
+
+	 boolean filterByColor = filter != null && filter.hasVehicleColorFilter();
+	 boolean filterByRoute =filter != null && filter.hasOnlyRouteIdFilter();
+	 
+	 List<VehicleTravelRow> rows = new ArrayList<>();
+	 
+	 // ONE SINGLE LOOP		
+	for (String vehicleId : exitTime.keySet()) {
+	    Double enter = enterTime.get(vehicleId);
+	    Double exit  = exitTime.get(vehicleId);
+	    if (enter == null || exit == null || exit <= enter) continue;
+	    IVehicle vehicle = vehicleById.get(vehicleId);
+	    if (vehicle == null) continue;
+	  //--------------------FILTERS------------------
+		// vehicleColor filter
+		if (filterByColor && !vehicle.getColor().equalsIgnoreCase(filter.getVehicleColor())) { continue; }
+		// onlyRouteId filter
+		if (filterByRoute && !vehicle.getRouteId().equals(filter.getOnlyRouteId())) { continue; }
+	    double travelTime = exit - enter;
+	    
+	    rows.add(new VehicleTravelRow(vehicleId, vehicle.getColor(), vehicle.getRouteId(), travelTime));
+	}
+	
+	// ---------- CSV ------------
+	if (!forPdf) { 
+		writer.println("vehicleId,color,routeId,travelTime(s)");
+		for (VehicleTravelRow row : rows) {
+			writer.println(row.vehicleId + "," + row.color + "," + row.routeId + "," + String.format(Locale.US, "%.2f", row.travelTime));
+		}
+		return;
+	}
+	
+	if (document == null) {throw new IllegalArgumentException("Document must not be null for PDF export");}
+	
+	// ---------- PDF (TABLE) -----------
+	document.add(new Paragraph("Vehicle Travel Times"));
+	document.add(new Paragraph(" "));
+	
+	if (rows.isEmpty()) {
+		document.add(new Paragraph("No vehicles match the selected filters."));
+		return;
+	}
+	PdfPTable table = new PdfPTable(4);
+	table.setWidthPercentage(70);
+	table.setWidths(new float[] {1f, 0.6f, 0.6f, 1f} );
+	
+	Font headerFont = new Font(Font.HELVETICA, 10, Font.BOLD, new Color(60, 60, 60));
+	table.addCell(new PdfPCell(new Phrase("VehicleId", headerFont)));
+	table.addCell(new PdfPCell(new Phrase("Color", headerFont)));
+	table.addCell(new PdfPCell(new Phrase("RouteId",headerFont)));
+	table.addCell(new PdfPCell(new Phrase("Travel Time (s)", headerFont)));
+	
+	for (VehicleTravelRow row : rows) {
+		table.addCell(row.vehicleId);
+		table.addCell(row.color);
+		table.addCell(row.routeId);
+		table.addCell(String.format(Locale.US, "%.2f", row.travelTime));
+	}
+
+	document.add(table);
+ }
 
 	//=============
 	// SUMMARY
 	//=============
 
- private void exportSummaryInternal (PrintWriter writer, boolean forPdf) {	// with no Filter
-	
-	writer.println("Simulation Summary");
-	
-	// --- Basic simulation information ---
-	int totalSteps = currentStep;
-	int totalVehicles = enterTime.size();
-	int totalEdges = infrastructureManager != null ? infrastructureManager.getAllEdges().size() : 0;
-	int totalTrafficLights = trafficLightManager != null ? trafficLightManager.getAllTrafficLights().size() : 0;
-	
-	writer.println("Total simulation steps: " + totalSteps);
-	writer.println("Total vehicles: " + totalVehicles);
-	writer.println("Total edges: " + totalEdges);
-	writer.println("Total trafficLights: " + totalTrafficLights);
-
-}
+ private List<ExportType> expandSummary (List<ExportType> types) {
+	 if (!types.contains(ExportType.SUMMARY)) return types;
+	 
+	 List<ExportType> expanded = new ArrayList<>();
+	 for (ExportType t : ExportType.values()) {
+		 if (t != ExportType.SUMMARY) expanded.add(t);
+	 }
+	 
+	 return expanded;
+ }
 
 	//=================
 	// EXPORT TO CSV
@@ -501,31 +726,32 @@ public void collectData() {
  @Override
  public void exportToCsv (String filepath, ExportFilter filter, List<ExportType> types) {
 	 
+	 List<ExportType> effectiveTypes = expandSummary(types);
      try (PrintWriter writer = new PrintWriter(filepath, "UTF-8")) {
     	 
-    	 for (ExportType type : types) {
-    		 
-    		 writer.println("# " + type);
+    	 for (ExportType type : effectiveTypes) {
 	         
     		 switch(type) {
 	        	 
-	        	 case AVG_SPEED: exportAverageSpeedInternal(writer,filter, false);
-	        	 break;
+	        	 case AVG_SPEED -> { 
+	        		 // calculate data
+	        		 Map<String, Double> data = calculateAverageSpeedPerEdge(filter);
+	        		 exportAverageSpeedInternal(writer,data, false);
+	        	 }
 	        	 
-	        	 case AVG_TRAVEL_TIME: exportAverageTravelTimeInternal(writer, filter, false);
-	        	 break;
+	        	 case AVG_TRAVEL_TIME -> {
+	        		 Map<String, Double> data = calculateAverageTravelTimePerRoute(filter);
+	        		 exportAverageTravelTimeInternal(writer, data, false);
+	        	 }
 	        	 
-	        	 case EDGE_DENSITY: exportEdgeDensityInternal(writer, filter, false);
-	        	 break;
+	        	 case EDGE_DENSITY -> {
+	        		 Map<String, Double> data = calculateAverageEdgeDensity(filter);
+	        		 exportEdgeDensityInternal(writer, data, false);
+	        	 }
 	        	 
-	        	 case CONGESTED_EDGES: exportCongestedEdgesInternal(writer, filter, false);
-	        	 break;
+	        	 case CONGESTED_EDGES -> exportCongestedEdgesInternal(writer, filter, false);
 	        	 
-	        	 case VEHICLE_TRAVEL_TIMES: exportVehicleTravelTimesInternal(writer, filter, false);
-	        	 break;
-	        	 
-	        	 case SUMMARY: exportSummaryInternal(writer, false);
-	        	 break;
+	        	 case VEHICLE_TRAVEL_TIMES -> exportVehicleTravelTimesInternal(writer,null, filter, false);
 	        	 
 	         }
 	         writer.println();	// empty Line between sections
@@ -562,17 +788,19 @@ public void collectData() {
 	            return "This report shows the individual travel times of vehicles that completed their routes. Results may be filtered by vehicle color and route.";
 
 	        case SUMMARY:
-	            return "This report provides an overall summary of the traffic simulation, including global statistics such as simulation steps, vehicles, edges, and traffic lights.";
-
+	            return "SUMMARY export selected.\n"
+	            		+ "This report includes all available export sections (Average Speed, Average Travel Time, Edge Density, Congested Edges, Vehicle Travel Times).\n"
+	            		+ "Any filters applied are evaluated individually for each export type.";
+	            
 	        default:
 	            return "No description available for this report type.";
 	    }
 	}
-
  
  @Override
  public void exportToPdf (String filepath, ExportFilter filter, List<ExportType> types) {
 
+	 List<ExportType> effectiveTypes = expandSummary(types);
      try {
     	 
     	 // Create the PDF document
@@ -592,8 +820,13 @@ public void collectData() {
     	 // --- Report metadata: creation time ---
     	 document.add(new Paragraph("Generated on: " + timestamp));
     	 document.add(new Paragraph(" "));
+    	 boolean summarySelected = types.contains(ExportType.SUMMARY);
+    	 if (summarySelected) {
+    		 document.add(new Paragraph(getDescriptionForType(ExportType.SUMMARY)));
+    		 document.add(new Paragraph(" "));
+    	 }
     	 
-    	 for (ExportType type : types) {
+    	 for (ExportType type : effectiveTypes) {
 	    	 // Which Export Type
 	    	 document.add(new Paragraph("Export Type: " + type));
 	    	 // Type description
@@ -601,45 +834,57 @@ public void collectData() {
 	    	 
 	    	 // --- Applied Filters section ---
 	    	 document.add(new Paragraph("Applied Filters"));
-	    	 if (filter != null) {
-	    		 document.add(new Paragraph(filter.toString()));
+	    	 boolean hasFilters = (filter != null && !filter.isEmpty());
+	    	 if (hasFilters) {
+	    		 document.add(new Paragraph(filter.toString(type)));
 	    	 } else { document.add(new Paragraph("No filters applied")); }
-	    	 
-	    	 document.add(new Paragraph(" "));
-	    	 document.add(new Paragraph("Filtered Results"));
-	    	 document.add(new Paragraph(" "));
+	    	 document.add(new Paragraph( hasFilters ? "Filtered Results" : "Results (no filters applied)"));
 	    	 
 	    	 // Collect output using existing export methods
 	    	 StringWriter sw = new StringWriter();
 	    	 PrintWriter pw = new PrintWriter(sw);
+	    	 Image chartImage = null;
 	    	 
 	    	 switch(type) {
 	    	 
-	    	 	case AVG_SPEED: exportAverageSpeedInternal(pw, filter, true);
-	    	 	break;
+	    	 	case AVG_SPEED -> {
+	    	 		// Calculate data once
+	    	 		Map<String, Double> data = calculateAverageSpeedPerEdge(filter);
+	    	 		// Export textual results to PDF 
+	    	 		exportAverageSpeedInternal(pw, data, true);
+	    	 		chartImage = buildAverageSpeedBarChart(data);
+	    	 	}
+	    	 	
+	    	 	case AVG_TRAVEL_TIME -> {
+	    	 		Map<String, Double> data = calculateAverageTravelTimePerRoute(filter);
+	    	 		exportAverageTravelTimeInternal(pw, data, true);
+	    	 		chartImage = buildAverageTravelTimeHorizontalBarChart(data);
+	    	 	}
 	    	 
-	    	 	case AVG_TRAVEL_TIME: exportAverageTravelTimeInternal(pw, filter, true);
-	    	 	break;
+	    	 	case EDGE_DENSITY -> {
+	    	 		Map<String, Double> data = calculateAverageEdgeDensity(filter);
+	    	 		exportEdgeDensityInternal(pw, data, true);
+	    	 		chartImage = buildEdgeDensityBarChart(data);
+	    	 	}
 	    	 
-	    	 	case EDGE_DENSITY: exportEdgeDensityInternal(pw, filter, true);
-	    	 	break;
+	    	 	case CONGESTED_EDGES -> exportCongestedEdgesInternal(pw, filter, true);
 	    	 
-	    	 	case CONGESTED_EDGES: exportCongestedEdgesInternal(pw, filter, true);
-	    	 	break;
+	    	 	case VEHICLE_TRAVEL_TIMES -> exportVehicleTravelTimesInternal(pw, document, filter, true);
 	    	 
-	    	 	case VEHICLE_TRAVEL_TIMES: exportVehicleTravelTimesInternal(pw, filter, true);
-	    	 	break;
-	    	 
-	    	 	case SUMMARY: exportSummaryInternal(pw, true);
-	    	 	break;
-	    	  
 	    	 }
 	    	 
 	    	 pw.flush();
-	    	 
-	    	 // Write lines into PDF
-	    	 for (String line : sw.toString().split("\n")) { document.add(new Paragraph(line)); }
-	    	 document.add(new Paragraph(" "));
+    	 	// Write lines into PDF
+	    	if (type != ExportType.VEHICLE_TRAVEL_TIMES) {
+   	    	for (String line : sw.toString().split("\n")) { document.add(new Paragraph(line)); }
+   	    	document.add(new Paragraph(" "));
+	    	}
+	    	
+   	    	if (chartImage != null) {
+   	    		document.add(chartImage);
+   	    		document.add(new Paragraph(" "));
+   	    	}
+	   	     
     	 }
     	 // Close the document
     	 document.close();

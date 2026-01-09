@@ -121,7 +121,7 @@ public class ControlPanel extends ScrollPane {
         
         cbColor = createStyledCombo("Color");
         // Mise à jour pour correspondre aux Switch Case de VehicleManager + Option "All"
-        cbColor.getItems().addAll("Rot", "Green", "Yellow", "All");
+        cbColor.getItems().addAll("Red", "Green", "Yellow", "All");
         cbColor.getSelectionModel().select(0);
         
         sliderSpeed = new Slider(0, 60, 15);
