@@ -16,7 +16,6 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
 import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
 import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
-import de.frauas.group6.traffic.simulator.infrastructure.IEdge;
 import de.frauas.group6.traffic.simulator.view.IMapObserver;
 
 import java.awt.geom.Point2D;
@@ -56,7 +55,7 @@ public class SimulationEngine implements ISimulationEngine {
     public SimulationEngine() {
         String sumoHome = System.getenv("SUMO_HOME");
         if (sumoHome == null) {
-            throw new RuntimeException("ERROR: SUMO_HOME environment variable is not set.");
+            throw new PathException("ERROR: SUMO_HOME environment variable is not set.");
         }
 
         sumoBin = sumoHome + "/bin/sumo-gui";
@@ -79,7 +78,7 @@ public class SimulationEngine implements ISimulationEngine {
             LOGGER.info("SUMO Connected.");
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "CRITICAL: Could not connect to SUMO.", e);
-            throw new RuntimeException(e);
+            throw new TraasCommunicationException("Connection Failed",e);
         }
     }
 
@@ -270,6 +269,17 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
+    
+    public double getVehicleAngle(String vehID) {
+        try {
+        
+            return (double)connection.do_job_get(Vehicle.getAngle(vehID));
+        } catch (Exception e) {
+           
+           
+            return 0.0; 
+        }
+    }
  
 
     /**
@@ -317,21 +327,7 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
     
-    public String getTrafficLightDebugInfo(String tlId) {
-        synchronized (traciLock) {
-            try {
-                // Get State
-                String state = (String) connection.do_job_get(Trafficlight.getRedYellowGreenState(tlId));
-                // Get Duration (convert ms to seconds)
-                int durationMs = (int) connection.do_job_get(Trafficlight.getPhaseDuration(tlId));
-                int durationSec = durationMs / 1000;
-                
-                return "State: " + state + " | Duration: " + durationSec + "s";
-            } catch (Exception e) {
-                return "Error: Could not fetch info";
-            }
-        }
-    }
+   
     @Override
     public List<String> getControlledLanes(String tlId) {
         synchronized (traciLock) {
@@ -381,6 +377,22 @@ public class SimulationEngine implements ISimulationEngine {
             } catch (Exception e) { return Collections.emptyList(); }
         }
     }
+    
+    
+    public Point2D getJunctionPosition(String jId) {
+        try {
+            
+            SumoPosition2D sumoPos = (SumoPosition2D) connection.do_job_get(Junction.getPosition(jId));
+            
+            return new Point2D.Double(sumoPos.x, sumoPos.y);
+        } catch (Exception e) {
+         
+            return new Point2D.Double(0, 0); 
+        }
+    }
+    
+    
+    
 
     @SuppressWarnings("unchecked")
     @Override
@@ -478,11 +490,9 @@ public class SimulationEngine implements ISimulationEngine {
     public void spawnVehicle(String id, String routeId, byte edgeLane, String typeId, int r, int g, int b, double speedInMps) {
         synchronized (traciLock) {
             try {
-                // Use speedInMps as departSpeed (6th argument)
-                // -2 = NOW (Time)
                 // 0.0 = POS (Start of lane)
                 // speedInMps = Depart Speed
-                // -2 = First Allowed Lane
+             
                 connection.do_job_set(Vehicle.add(id, typeId, routeId, 0, 0.0, speedInMps, edgeLane));
                 
                 // Apply color immediately
@@ -534,18 +544,10 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
- /*
+
   
 
-    @Override
-    public void checkAndHandleCongestion() {
-        if (trafficLightManager != null && infrastructureManager != null) {
-            // 1. Refresh Edge Data
-            infrastructureManager.refreshEdgeData();
-            // 2. Logic decision
-            trafficLightManager.handleCongestion(infrastructureManager.getAllEdges());
-        }
-    } */ 
+  
 
     // --- DEPENDENCY INJECTION ---
     public void setVehicleManager(IVehicleManager vm) { this.vehicleManager = vm; }

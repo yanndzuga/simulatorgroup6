@@ -219,7 +219,9 @@ public class ControlPanel extends ScrollPane {
         if(engine == null) return;
         lblTime.setText(String.format("TIME: %.2f s", engine.getCurrentSimulationTime()));
         updateTlInfo();
+        
         if (cbTrafficLight.getItems().isEmpty() && engine.getTrafficLightIdList() != null) {
+        	System.out.println("junction failed");
             cbTrafficLight.getItems().setAll(engine.getTrafficLightIdList());
         }
     }
@@ -290,7 +292,7 @@ public class ControlPanel extends ScrollPane {
         if (id == null || engine == null) return;
         try {
             String state = engine.getTrafficLightState(id);
-            double timeLeft = engine.getTrafficLightRemainingTime(id) / 1000.0;
+            double timeLeft = engine.getTrafficLightRemainingTime(id)/100;
             lblTlState.setText("P:" + engine.getTrafficLightPhase(id) + " (" + state + ")");
             lblPhaseTime.setText(String.format("%.1fs", timeLeft));
             

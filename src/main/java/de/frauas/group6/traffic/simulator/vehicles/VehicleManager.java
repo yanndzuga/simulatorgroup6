@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 
@@ -17,6 +19,8 @@ import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
  */
 public  class VehicleManager implements IVehicleManager {
 
+	private static final Logger LOGGER = Logger.getLogger(VehicleManager.class.getName());
+	
     private ISimulationEngine SumolationEngine;
     private Map<String, IVehicle> Vehicles;
     // Tracks creation time to provide a "grace period" for new vehicles before deletion
@@ -51,7 +55,7 @@ public  class VehicleManager implements IVehicleManager {
             switch (color) {
                 case "Yellow": r = 255; g = 255; b = 0; break;
                 case "Red":    r = 255; g = 0;   b = 0; break;
-                case "Green":  r = 0;   g = 222; b = 0; break;
+                case "Green":  r = 0;   g = 255; b = 0; break;
             }
 
            
@@ -91,19 +95,18 @@ public  class VehicleManager implements IVehicleManager {
                         creationTimes.put(vehicleId, System.currentTimeMillis());
                         Vehicles.put(vehicleId, newvehicle);
                         
-                        System.out.println("DEBUG: Car " + vehicleId + " added to map (size: " + Vehicles.size() + ")");
+                        LOGGER.info("DEBUG: Car " + vehicleId + " added to map (size: " + Vehicles.size() + ")");
                         
                         // Spawn in SUMO
                         SumolationEngine.spawnVehicle(vehicleId,RouteId, edgeLane, TypeId, r, g, b, speed);
                         
                         successfullyAddedIds.add(vehicleId);
                         
-                        // Small delay to space out TraCI requests
-                        Thread.sleep(50); 
+                        
                     }
                 }
             } catch (Exception e) {
-                System.err.println("CRITICAL TRAFFIC INJECTION FAILURE: " + e.getMessage());
+            	LOGGER.log(Level.SEVERE,"CRITICAL TRAFFIC INJECTION FAILURE: " + e.getMessage());
                 // Cleanup on failure
                 for (String id : successfullyAddedIds) {
                     Vehicles.remove(id);
@@ -220,8 +223,7 @@ public  class VehicleManager implements IVehicleManager {
                 if (createdAt != null && (now - createdAt) < 100000) {
                     return false; // KEEP (Waiting for SUMO insertion)
                 } else {
-                    // Truly gone (Finished route or timed out from queue)
-                    // System.out.println("Cleaning up: " + id);
+                   
                     return true; // DELETE from map
                 }
             }

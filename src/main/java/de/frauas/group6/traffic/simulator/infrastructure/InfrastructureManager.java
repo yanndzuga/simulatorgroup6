@@ -46,10 +46,10 @@ public class InfrastructureManager implements IInfrastructureManager {
             }
         }
 
-        // 2. Load Junctions
+     // 2. Load Junctions
         List<String> junctionIds = simulationEngine.getJunctionIdList();
         if (junctionIds != null) {
-            for (String id : junctionIds) { 
+            for (String id : junctionIds) {
                 List<Point2D> shape = simulationEngine.getJunctionShape(id);
                 Point2D center = shape.isEmpty() ? new Point2D.Double(0,0) : shape.get(0); 
                 
@@ -132,6 +132,7 @@ public class InfrastructureManager implements IInfrastructureManager {
 
     @Override
     public void refreshEdgeData() {
+    	loadNetwork();
         // Iterate over all edges to fetch fresh vehicle counts
         for (IEdge edge : edges.values()) {
             try {

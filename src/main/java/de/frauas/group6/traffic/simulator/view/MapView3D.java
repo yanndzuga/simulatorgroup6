@@ -131,7 +131,7 @@ public class MapView3D {
     		Box Edge;
     		if(edge.equals("E45")) {Edge = new Box(Edgelenght,0.2,(lanenummer*5.1)); }
     		
-    		else {Edge = new Box(Edgelenght,0.2,(lanenummer*4.6));}
+    		else {Edge = new Box(Edgelenght,0.2,(lanenummer*4.9));}
     		
     		
     		double X = Math.abs(pStart.getX()-pEnd.getX());
@@ -454,8 +454,8 @@ public class MapView3D {
     	            switch(v.getColor()) {
     	                case "Yellow": material.setDiffuseColor(Color.YELLOW); break;
     	                case "Green":  material.setDiffuseColor(Color.GREEN);  break;
-    	                case "Rot":    material.setDiffuseColor(Color.RED);    break;
-    	                default:       material.setDiffuseColor(Color.BLUE);
+    	                case "Red":    material.setDiffuseColor(Color.RED);    break;
+    	               
     	            }
     	            b.setMaterial(material);
     	            

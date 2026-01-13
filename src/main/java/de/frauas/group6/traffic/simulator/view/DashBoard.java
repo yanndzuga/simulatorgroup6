@@ -445,7 +445,7 @@ public class DashBoard extends StackPane {
             }
             
             String ext = isCsv ? ".csv" : ".pdf";
-            String path = System.getProperty("user.home") + File.separator + fName + ext;
+            String path = System.getProperty("/D") + File.separator + fName + ext;
             
             if (isCsv) statsCollector.exportToCsv(path, filter, selectedTypes);
             else statsCollector.exportToPdf(path, filter, selectedTypes);

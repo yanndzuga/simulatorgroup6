@@ -20,6 +20,7 @@ public interface ISimulationEngine {
     int[] getVehicleColor(String vehicleId);
     String getVehicleIdAtPosition(double x, double y, double radius);
     byte getVehicleLaneIndex(String vehicleId);
+    double getVehicleAngle(String vehID);
     
     void spawnVehicle(String id, String routeId, byte edgeLane, String typeId, int r, int g, int b, double speedInMps);
     void setVehicleColor(String id, int r, int g, int b);
@@ -45,6 +46,7 @@ public interface ISimulationEngine {
 
     // --- Junctions ---
     List<Point2D> getJunctionShape(String junctionId);
+    Point2D getJunctionPosition(String jId);
     List<String> getJunctionIdList();
     
     // --- Edges / Infrastructure ---

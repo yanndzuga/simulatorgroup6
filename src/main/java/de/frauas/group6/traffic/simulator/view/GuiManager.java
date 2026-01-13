@@ -9,8 +9,11 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Orientation; // Import pour l'orientation du SplitPane
 import javafx.scene.Scene;
+import javafx.scene.SceneAntialiasing;
+import javafx.scene.SubScene;
 import javafx.scene.control.SplitPane; // Remplacement de VBox par SplitPane
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 /**
@@ -34,8 +37,13 @@ public class GuiManager extends Application implements IMapObserver {
     private MapView mapView;
     private ControlPanel controlPanel;
     private DashBoard dashboard; 
+    
+    private MapView3D mapView3D; 
+    private double mousePosX;
+    private double mousePosY;
+    private double zoomZ;
 
-    // Méthode statique pour lancer l'UI depuis le Main
+    //static method to launch IU from  JavaApp
     public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager trafficLightManager,IStatsCollector statsCollector,IInfrastructureManager infraMgr) {
         staticEngine = engineInstance;
         staticVehicleManager = vmInstance;
@@ -55,14 +63,59 @@ public class GuiManager extends Application implements IMapObserver {
         
         BorderPane root = new BorderPane();
         
-        // 1. CENTRE : La Carte (MapView)
-        this.mapView = new MapView(engine, vehicleManager);
-        root.setCenter(mapView);
+        // (MapView)
+               
+      this.mapView3D = new MapView3D(engine,vehicleManager,controlPanel);
         
-        // 2. DROITE : Sidebar
-        // Utilisation d'un SplitPane au lieu d'une VBox pour permettre le redimensionnement manuel
+        
+      SubScene subScene = new SubScene(mapView3D.getRoot(), 800, 800, true, SceneAntialiasing.BALANCED);
+      subScene.setPickOnBounds(true);
+      StackPane mapContainer= new StackPane(subScene);
+      root.setCenter(mapContainer);
+      
+        subScene.setOnMousePressed(event->{
+         mousePosX= event.getSceneX();
+         mousePosY= event.getSceneY();
+         
+        });
+       subScene.setOnMouseDragged(event->{
+       if(event.isPrimaryButtonDown()) {
+        double dx= event.getSceneX()-mousePosX;
+        double dy= event.getSceneY()-mousePosY;
+        mapView3D.updateRotation(dx*0.2,-dy*0.2);}
+       
+         else if(event.isShiftDown() && event.isSecondaryButtonDown() ) {
+        
+        
+        double dy= event.getSceneY()-mousePosY;
+        double dx= event.getSceneX()-mousePosX;
+        mapView3D.moveHorizontale(dx,-dy);
+       
+       }
+       else if( !(event.isShiftDown()) && event.isSecondaryButtonDown()) {
+        double dy= event.getSceneY()-mousePosY;
+              mapView3D. moveRoadsVertical(dy);
+       }
+       
+       
+       
+       mousePosX = event.getSceneX();
+       mousePosY = event.getSceneY();
+       });
+       
+        subScene.setOnScroll(event->{
+        zoomZ=event.getDeltaY();
+        mapView3D.Zoom(zoomZ*2.0);
+       });
+        
+        subScene.setCamera(mapView3D.getCamera());
+        
+        
+        subScene.widthProperty().bind(root.widthProperty().subtract(350)); 
+        subScene.heightProperty().bind(root.heightProperty());
+        // 2. Right : Sidebar
         SplitPane sidebar = new SplitPane();
-        sidebar.setOrientation(Orientation.VERTICAL); // Empilement vertical
+        sidebar.setOrientation(Orientation.VERTICAL); //  vertical Empilement
         sidebar.setPrefWidth(320);
         sidebar.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #cccccc; -fx-border-width: 0 0 0 1;");
         
@@ -72,17 +125,16 @@ public class GuiManager extends Application implements IMapObserver {
         // B. Dashboard
         this.dashboard = new DashBoard(statsCollector,infraMgr);
 
-        // Ajout des composants au SplitPane
+        // ajust components of  SplitPane
         sidebar.getItems().addAll(controlPanel, dashboard);
         
-        // DÉFINITION DE LA TAILLE PAR DÉFAUT
-        // 0.6 signifie que le ControlPanel (premier élément) prendra 60% de la hauteur au démarrage
+        
         sidebar.setDividerPositions(0.5);
         
         root.setRight(sidebar);
 
-        // Connexion : Quand on clique sur une voiture, le ControlPanel se remplit
-        mapView.setOnVehicleSelected(id -> controlPanel.selectVehicle(id));
+      
+        //mapView.setOnVehicleSelected(id -> controlPanel.selectVehicle(id));
 
         // Configuration Scène
         Scene scene = new Scene(root, 1280, 800);
@@ -104,9 +156,14 @@ public class GuiManager extends Application implements IMapObserver {
     @Override
     public void refresh() {
         Platform.runLater(() -> {
-            if (mapView != null) mapView.render();
-            if (controlPanel != null) controlPanel.updateRealTimeData();
-            if (dashboard != null)  dashboard.update(); 
+        	if (controlPanel != null) controlPanel.updateRealTimeData();
+            if (dashboard != null)  dashboard.update();
+            if (mapView3D != null) {
+                mapView3D.renderRoads(); // Method ghadi n-redouha public
+                mapView3D.updateVehicles(vehicleManager); 
+                mapView3D.updateTrafficLights();
+            }
+            
             
         });
     }
