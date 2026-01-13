@@ -50,7 +50,7 @@ public  class VehicleManager implements IVehicleManager {
 
             switch (color) {
                 case "Yellow": r = 255; g = 255; b = 0; break;
-                case "Rot":    r = 255; g = 0;   b = 0; break;
+                case "Red":    r = 255; g = 0;   b = 0; break;
                 case "Green":  r = 0;   g = 222; b = 0; break;
             }
 
@@ -129,7 +129,7 @@ public  class VehicleManager implements IVehicleManager {
         int r = 0, g = 0, b = 0;
         switch (newcolor) {
             case "Yellow": r = 255; g = 255; b = 0; break;
-            case "Rot":    r = 255; g = 0;   b = 0; break;
+            case "Red":    r = 255; g = 0;   b = 0; break;
             case "Green":  r = 0;   g = 222; b = 0; break;
         }
 
@@ -244,7 +244,7 @@ public  class VehicleManager implements IVehicleManager {
         if(!(Currentcolor.equals("All"))) {
     	for(  IVehicle V: Vehicles.values()) {
     		
-    		 if(V.getColor().equals(Currentcolor) && Math.abs((V.getSpeed())-Currentspeed)<=SPEED_TOLERANCE) {
+    		 if(V.getColor().equalsIgnoreCase(Currentcolor) && Math.abs((V.getSpeed())-Currentspeed)<=SPEED_TOLERANCE) {
     			 V.setIsvisible(true);
     		 }
     		 

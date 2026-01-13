@@ -1,7 +1,5 @@
 package de.frauas.group6.traffic.simulator.analytics;
 
-import de.frauas.group6.traffic.simulator.vehicles.IVehicle;
-
 public class ExportFilter {
 
 	// -----------------
@@ -67,31 +65,48 @@ public class ExportFilter {
 
 	public boolean hasMinAverageTravelTimeFilter() { return minAverageTravelTime != null; }
 
-	
+	public boolean isEmpty() {
+	    return !hasVehicleColorFilter()
+	        && !hasOnlyRouteIdFilter()
+	        && !hasOnlyEdgeIdFilter()
+	        && !hasMinAverageTravelTimeFilter()
+	        && !hasMinEdgeDensityFilter()
+	        && !hasOnlyCongestedEdgesFilter();
+	}
+
 	// toString() for PDF export
-	@Override
-	public String toString() {
+	public String toString (ExportType type) {
 	    StringBuilder sb = new StringBuilder();
-
-	    if (vehicleColor != null) {
-	        sb.append("vehicleColor = ").append(vehicleColor).append("\n");
-	    }
-	    if (onlyRouteId != null) {
-	        sb.append("onlyRouteId = ").append(onlyRouteId).append("\n");
-	    }
-	    if (minAverageTravelTime != null) {
-	        sb.append("minAverageTravelTime = ").append(minAverageTravelTime).append("\n");
-	    }
-	    if (onlyEdgeId != null) {
-	        sb.append("onlyEdgeId = ").append(onlyEdgeId).append("\n");
-	    }
-	    if (onlyCongestedEdges) {
-	        sb.append("onlyCongestedEdges = true\n");
-	    }
-	    if (minEdgeDensity != null) {
-	        sb.append("minEdgeDensity = ").append(minEdgeDensity).append("\n");
-	    }
-
+	    switch (type) {
+	    
+	    	case AVG_SPEED:
+			    if (vehicleColor != null) sb.append("vehicleColor = ").append(vehicleColor).append("\n");
+			    if (onlyEdgeId != null) sb.append("onlyEdgeId = ").append(onlyEdgeId).append("\n");
+			    if (onlyCongestedEdges) sb.append("onlyCongestedEdges = true\n");
+			    break;
+			    
+	    	case AVG_TRAVEL_TIME:
+	    		if (onlyRouteId != null) sb.append("onlyRouteId = ").append(onlyRouteId).append("\n");
+	    		if (minAverageTravelTime != null) sb.append("minAverageTravelTime = ").append(minAverageTravelTime).append("\n");
+	    		break;
+	    		
+	    	case EDGE_DENSITY:
+	    		if (onlyEdgeId != null) sb.append("onlyEdgeId = ").append(onlyEdgeId).append("\n");
+	    		if (minEdgeDensity != null) sb.append("minEdgeDensity = ").append(minEdgeDensity).append("\n");
+	    		if (onlyCongestedEdges) sb.append("onlyCongestedEdges = true\n");
+	    		break;
+	    		
+	    	case CONGESTED_EDGES:
+	    		if (onlyEdgeId != null) sb.append("onlyEdgeId = ").append(onlyEdgeId).append("\n");
+	    	
+	    	case VEHICLE_TRAVEL_TIMES:	
+	    		if (vehicleColor != null) sb.append("vehicleColor = ").append(vehicleColor).append("\n");
+	    		if (onlyRouteId != null) sb.append("onlyRouteId = ").append(onlyRouteId).append("\n");
+	    		break;
+	    		
+	    	case SUMMARY: break;
+		    
+	    }    
 	    return sb.toString();
 	}
 
