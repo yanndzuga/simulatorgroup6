@@ -2,16 +2,12 @@ package de.frauas.group6.traffic.simulator.core;
 
 import java.awt.geom.Point2D;
 import java.util.List;
-import de.frauas.group6.traffic.simulator.view.GuiManager;
 import de.frauas.group6.traffic.simulator.view.IMapObserver;
-
 
 public interface ISimulationEngine {
 
-    // --- Time Control ---
     double getCurrentSimulationTime();
 
-    // --- Vehicles ---
     List<String> getVehicleIdList();
     Point2D getVehiclePosition(String vehicleId);
     double getVehicleSpeed(String vehicleId);
@@ -26,7 +22,6 @@ public interface ISimulationEngine {
     void setVehicleSpeed(String id, double speed);
     void removeVehicle(String id);
 
-    // --- Traffic Lights ---
     List<String> getTrafficLightIdList();
     int getTrafficLightPhase(String tlId);
     long getTrafficLightRemainingTime(String tlId);
@@ -38,23 +33,17 @@ public interface ISimulationEngine {
     void setTrafficLightPhase(String tlId, int phaseIndex);
     void setTrafficLightDuration(String tlId, int durationSeconds);
 
-    // --- Advanced Traffic Control (Milestone 2 Features) ---
-    void forceGreenWave(String trafficLightId);
-    void forceRedStop(String trafficLightId);
     void checkAndHandleCongestion();
 
-    // --- Junctions ---
     List<Point2D> getJunctionShape(String junctionId);
     List<String> getJunctionIdList();
     
-    // --- Edges / Infrastructure ---
     List<String> getEdgeIdList();
     List<Point2D> getEdgeShape(String edgeId);
     int getEdgeVehicleCount(String edgeId);
     List<String> getLaneList(String edgeId);
     double getEdgeLength(String edgeId);
     
-    // --- Engine Control ---
     void start();
     void stop();
     void step();
@@ -62,8 +51,5 @@ public interface ISimulationEngine {
     void resume();
     boolean isPaused();
 
-
-	void setMapObserver(IMapObserver guiManager);
-
+    void setMapObserver(IMapObserver guiManager);
 }
-

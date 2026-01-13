@@ -1,6 +1,9 @@
 package de.frauas.group6.traffic.simulator.core;
 
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
+import de.frauas.group6.traffic.simulator.infrastructure.TrafficLightManager;
+import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
+import de.frauas.group6.traffic.simulator.infrastructure.InfrastructureManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.vehicles.VehicleManager;
 import de.frauas.group6.traffic.simulator.view.GuiManager;
@@ -8,14 +11,6 @@ import de.frauas.group6.traffic.simulator.view.GuiManager;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * ENTRY POINT
- * This class orchestrates the application startup:
- * 1. Initializes the Core Engine
- * 2. Creates the Managers (Components)
- * 3. Wires dependencies (Dependency Injection)
- * 4. Launches the GUI
- */
 public class App {
 
     private static final Logger LOGGER = Logger.getLogger(App.class.getName());
@@ -24,52 +19,38 @@ public class App {
         LOGGER.info(">>> Initializing Traffic Simulation System...");
 
         try {
-            // ------------------------------------------------------------
-            // 1. Create the Core Engine
-            // ------------------------------------------------------------
+            // 1. Create Engine
             SimulationEngine engine = new SimulationEngine();
 
-            // ------------------------------------------------------------
-            // 2. Create the Component Managers
-            // ------------------------------------------------------------
-            // Member 2: Vehicles
+            // 2. Create Managers
             IVehicleManager vehicleMgr = new VehicleManager(engine);
+            IInfrastructureManager infraMgr = new InfrastructureManager(engine);
             
-            // Member 3: Infrastructure (Traffic Lights) - Placeholder if not ready
-            ITrafficLightManager lightMgr = null; // new TrafficLightManager(engine);
-            
-            // Member 5: Stats - Placeholder if not ready
-            // IStatsCollector statsCollector = new StatsCollector(engine);
+            // Pass dependencies
+            ITrafficLightManager lightMgr = new TrafficLightManager(engine, infraMgr);
 
-            // ------------------------------------------------------------
-            // 3. Dependency Injection (Wiring)
-            // ------------------------------------------------------------
+            // 3. Wiring
             engine.setVehicleManager(vehicleMgr);
             engine.setTrafficLightManager(lightMgr);
-            // engine.setStatsCollector(statsCollector);
+            engine.setInfrastructureManager(infraMgr);
 
-            // ------------------------------------------------------------
-            // 4. Initialize SUMO Connection
-            // ------------------------------------------------------------
-            // This is a blocking call that ensures TraCI is connected before GUI starts
+            // 4. Initialize
             engine.initialize();
 
-            // ------------------------------------------------------------
-            // 5. Start User Interface (View - Member 4)
-            // ------------------------------------------------------------
-            // Passes the engine and managers to the GUI so controls can work immediately
-            GuiManager.startUI(engine, vehicleMgr);
+            // 5. Load Network
+            infraMgr.loadNetwork(); 
 
-            // ------------------------------------------------------------
-            // 6. Start the Simulation Loop
-            // ------------------------------------------------------------
+            // 6. Start UI
+            GuiManager.startUI(engine, vehicleMgr, lightMgr);
+
+            // 7. Start Loop
             engine.start();
             
-            LOGGER.info(">>> System running. Close the GUI window to exit.");
+            LOGGER.info(">>> System running.");
 
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "CRITICAL FAILURE: Could not start application.", e);
-            System.exit(1); // Non-zero exit code indicates failure
+            LOGGER.log(Level.SEVERE, "CRITICAL FAILURE", e);
+            System.exit(1);
         }
     }
 }

@@ -11,21 +11,33 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 
+/**
+ * Manages the lifecycle of vehicles in the simulation.
+ * Handles injection, modification, deletion, and synchronization with the SUMO engine.
+ */
 public class VehicleManager implements IVehicleManager {
 
     private ISimulationEngine SumolationEngine;
     private Map<String, IVehicle> Vehicles;
+    // Tracks creation time to provide a "grace period" for new vehicles before deletion
     private Map<String, Long> creationTimes; 
     static Long counter; 
 
+    /**
+     * Constructor for VehicleManager.
+     * @param SumolationEngine The core simulation engine interface.
+     */
     public VehicleManager(ISimulationEngine SumolationEngine) {
         this.SumolationEngine = SumolationEngine;
         this.Vehicles = new ConcurrentHashMap<>();
         this.creationTimes = new ConcurrentHashMap<>();
         counter = (long) 0;
-        System.out.println("ACHTUNG: Ein neuer VehicleManager wurde erstellt! " + this);
+        System.out.println("ATTENTION: A new VehicleManager has been created! " + this);
     }
 
+    /**
+     * Injects vehicles into the simulation on a separate thread.
+     */
     public void injectVehicle(String edgeId, String lane, String VehicleType, String color, int number, double speed) {
         new Thread(() -> {
             String vehicleId;
@@ -40,6 +52,7 @@ public class VehicleManager implements IVehicleManager {
                 case "Green":  r = 0;   g = 222; b = 0; break;
             }
 
+            // Lane logic configuration
             if (edgeId.equals("E45")) {
                 if (lane.equals("middle")) { edgeLane = 1; }
                 else if (lane.equals("Left")) { edgeLane = 2; }
@@ -47,6 +60,7 @@ public class VehicleManager implements IVehicleManager {
                 if (lane.equals("Left")) { edgeLane = 1; }
             }
 
+            // Vehicle Type Mapping
             switch (VehicleType) {
                 case "Standard-Car": TypeId = "DEFAULT_VEHTYPE"; break;
                 case "Truck":        TypeId = "DEFAULT_CONTAINERTYPE"; break;
@@ -54,7 +68,8 @@ public class VehicleManager implements IVehicleManager {
                 case "City-Bus":     TypeId = "BUS_TYPE"; break;
             }
 
-            String routeid = " ";
+            // Route Mapping Logic
+            String routeid = "";
             switch (edgeId) {
                 case "-E48": routeid = (edgeLane == 0) ? "R0" : "R1"; break;
                 case "E46":  routeid = (edgeLane == 0) ? "R2" : "R3"; break;
@@ -65,29 +80,33 @@ public class VehicleManager implements IVehicleManager {
             }
 
             try {
+                // Synchronize on the Vehicles map to ensure thread safety during injection
                 synchronized (Vehicles) {
+                	if (number <=100)
                     for (int i = 0; i < number; i++) {
                         counter++;
                         vehicleId = "VEH_" + counter;
                         Vehicle newvehicle = new Vehicle(vehicleId, TypeId, speed, color, edgeId, edgeLane);
 
-                        // Protection étendue : 10 secondes pour laisser SUMO insérer toute la file
+                        // Extended Protection: Set creation time BEFORE adding to main map.
+                        // This gives SUMO time (10s) to process the insertion queue.
                         creationTimes.put(vehicleId, System.currentTimeMillis());
                         Vehicles.put(vehicleId, newvehicle);
                         
-                        System.out.println("DEBUG: Auto " + vehicleId + " ajouté map (taille: " + Vehicles.size() + ")");
+                        System.out.println("DEBUG: Car " + vehicleId + " added to map (size: " + Vehicles.size() + ")");
                         
-                        // Paramètre clé : departPos="base" ou laisser vide pour insertion intelligente
+                        // Spawn in SUMO
                         SumolationEngine.spawnVehicle(vehicleId, routeid, edgeLane, TypeId, r, g, b, speed);
                         
                         successfullyAddedIds.add(vehicleId);
                         
-                        // Petit délai pour espacer les requêtes TraCI
+                        // Small delay to space out TraCI requests
                         Thread.sleep(50); 
                     }
                 }
             } catch (Exception e) {
                 System.err.println("CRITICAL TRAFFIC INJECTION FAILURE: " + e.getMessage());
+                // Cleanup on failure
                 for (String id : successfullyAddedIds) {
                     Vehicles.remove(id);
                     creationTimes.remove(id);
@@ -96,12 +115,15 @@ public class VehicleManager implements IVehicleManager {
         }).start();
     }
 
+    /**
+     * Modifies properties of an existing vehicle.
+     */
     public void modifyVehicle(String vehicleId, String newcolor, double newspeed) throws Exception {
         IVehicle myvehicle = Vehicles.get(vehicleId);
 
         if (myvehicle == null) {
-            throw new IllegalArgumentException("ERROR: Fahrzeug ID '" + vehicleId + 
-                                               "' nicht im Manager gefunden. Modifizierung abgebrochen.");
+            throw new IllegalArgumentException("ERROR: Vehicle ID '" + vehicleId + 
+                                               "' not found in Manager. Modification aborted.");
         }
 
         myvehicle.setColor(newcolor);
@@ -117,6 +139,9 @@ public class VehicleManager implements IVehicleManager {
         SumolationEngine.setVehicleSpeed(vehicleId, newspeed);
     }
 
+    /**
+     * Deletes vehicles matching criteria from a specific edge.
+     */
     public void deleteVehicle(String requestedEdgeId, String requestedColor, double requestedSpeed, int requestnumber) {
         int count = 0;
         List<String> validVehicleIds = new ArrayList<>();
@@ -136,9 +161,9 @@ public class VehicleManager implements IVehicleManager {
         }
 
         if (validVehicleIds.size() < requestnumber) {
-            throw new IllegalArgumentException("ERROR: Nur " + validVehicleIds.size() + 
-                                               " Fahrzeuge gefunden, aber " + requestnumber + 
-                                               " benötigt. Keine Fahrzeuge gelöscht.");
+            throw new IllegalArgumentException("ERROR: Only found " + validVehicleIds.size() + 
+                                               " vehicles, but " + requestnumber + 
+                                               " required. No vehicles deleted.");
         }
 
         for (String id : validVehicleIds) {
@@ -147,11 +172,15 @@ public class VehicleManager implements IVehicleManager {
                 Vehicles.remove(id);
                 creationTimes.remove(id); 
             } catch (Exception e) {
-                throw new RuntimeException("FEHLER beim Löschen von Fahrzeug " + id + ". Prozess gestoppt.", e);
+                throw new RuntimeException("ERROR deleting vehicle " + id + ". Process stopped.", e);
             }
         }
     }
 
+    /**
+     * Updates vehicle positions and removes vehicles that have exited the simulation.
+     * Uses a 'grace period' logic to prevent premature deletion of newly injected vehicles.
+     */
     public void updateVehicles() {
         List<String> activeSumoIds = SumolationEngine.getVehicleIdList();
         Set<String> activeSet = new HashSet<>(activeSumoIds);
@@ -161,7 +190,7 @@ public class VehicleManager implements IVehicleManager {
             String id = entry.getKey();
             IVehicle vehicle = entry.getValue();
 
-            // CAS A : Le véhicule est actif dans SUMO
+            // CASE A: Vehicle is active in SUMO -> Update position
             if (activeSet.contains(id)) {
                 try {
                     Point2D newPos = SumolationEngine.getVehiclePosition(id);
@@ -172,33 +201,33 @@ public class VehicleManager implements IVehicleManager {
                     vehicle.setEdgeId(newEdgeId);
                     vehicle.setEdgeLane((byte) newLane);
 
-                    // Si le véhicule est actif, on met à jour son "ping" ou on le retire du délai de grâce
-                    // Mais attention : si on le retire de creationTimes trop tôt et qu'il disparaît temporairement
-                    // (ex: changement de voie ou bug SUMO d'une frame), il sera supprimé.
-                    // On laisse creationTimes gérer le "démarrage", une fois démarré, c'est activeSet qui fait foi.
+                    // If active, we can remove it from the creation grace period list.
+                    // Note: If removed too early and SUMO has a momentary glitch, it might be deleted.
+                    // However, 'creationTimes' is mainly for the initial spawn delay.
                     creationTimes.remove(id);
 
                 } catch (Exception e) {
-                    // Ignorer les erreurs de lecture ponctuelles
+                    // Ignore occasional read errors
                 }
-                return false; // ON GARDE
+                return false; // KEEP in map
             }
-            // CAS B : Le véhicule n'est PAS (ou PLUS) dans SUMO
+            // CASE B: Vehicle is NOT in SUMO (Finished or not yet spawned)
             else {
                 Long createdAt = creationTimes.get(id);
 
-                // Augmentation du délai de grâce à 10s (10000ms)
-                // Cela permet à SUMO d'insérer les véhicules un par un s'il y a un embouteillage à l'insertion
-                if (createdAt != null && (now - createdAt) < 10000) {
-                    return false; // ON GARDE (En attente d'insertion SUMO)
+                // Grace period: 10 seconds (10000ms)
+                // Allows SUMO to queue insertions if the entry lane is blocked.
+                if (createdAt != null && (now - createdAt) < 100000) {
+                    return false; // KEEP (Waiting for SUMO insertion)
                 } else {
-                    // Vraiment parti (fini ou supprimé par SUMO car trop d'attente)
+                    // Truly gone (Finished route or timed out from queue)
                     // System.out.println("Cleaning up: " + id);
-                    return true; // ON SUPPRIME
+                    return true; // DELETE from map
                 }
             }
         });
 
+        // Cleanup auxiliary map
         creationTimes.keySet().retainAll(Vehicles.keySet());
     }
 

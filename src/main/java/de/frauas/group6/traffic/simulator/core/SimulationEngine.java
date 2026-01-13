@@ -27,7 +27,7 @@ import java.util.logging.Logger;
 
 /**
  * CORE MODULE - IMPLEMENTATION
- * Handles raw communication with TraaS (SUMO) and synchronizes threads.
+ * Handles raw communication with TraaS (SUMO).
  */
 public class SimulationEngine implements ISimulationEngine {
 
@@ -266,17 +266,11 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
- 
-
-    /**
-     * Retrieves the list of all Traffic Light IDs from SUMO.
-     */
     @SuppressWarnings("unchecked")
     @Override
     public List<String> getTrafficLightIdList() {
         synchronized (traciLock) {
             try {
-                // Real TraCI call to get IDs
                 return (List<String>) connection.do_job_get(Trafficlight.getIDList());
             } catch (Exception e) {
                 System.err.println("Error fetching Traffic Light IDs: " + e.getMessage());
@@ -313,21 +307,6 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
     
-    public String getTrafficLightDebugInfo(String tlId) {
-        synchronized (traciLock) {
-            try {
-                // Get State
-                String state = (String) connection.do_job_get(Trafficlight.getRedYellowGreenState(tlId));
-                // Get Duration (convert ms to seconds)
-                int durationMs = (int) connection.do_job_get(Trafficlight.getPhaseDuration(tlId));
-                int durationSec = durationMs / 1000;
-                
-                return "State: " + state + " | Duration: " + durationSec + "s";
-            } catch (Exception e) {
-                return "Error: Could not fetch info";
-            }
-        }
-    }
     @Override
     public List<String> getControlledLanes(String tlId) {
         synchronized (traciLock) {
@@ -470,32 +449,28 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
     
+    
     @Override
     public void spawnVehicle(String id, String routeId, byte edgeLane, String typeId, int r, int g, int b, double speedInMps) {
         synchronized (traciLock) {
             try {
-                // Use speedInMps as departSpeed (6th argument)
-                // -2 = NOW (Time)
-                // 0.0 = POS (Start of lane)
-                // speedInMps = Depart Speed
-                // -2 = First Allowed Lane
+                // 1. Spawn vehicle
                 connection.do_job_set(Vehicle.add(id, typeId, routeId, 0, 0.0, speedInMps, edgeLane));
                 
-                // Apply color immediately
-
+                // 2. Set Color
                 SumoColor c = new SumoColor(r, g, b, 255);
                 connection.do_job_set(Vehicle.setColor(id, c));
-                LOGGER.info("Spawned vehicle: " + id);
+                
+                // 3. Set Shape
+                connection.do_job_set(Vehicle.setShapeClass(id, "passenger"));
+                
+                LOGGER.info("Spawned vehicle: " + id + " (Shape: passenger)");
             } catch (Exception e) {
                 LOGGER.log(Level.SEVERE, "Failed to spawn vehicle: " + id, e);
             }
         }
     }
 
-    
- 
-    
-    
     @Override
     public void setVehicleColor(String id, int r, int g, int b) {
         synchronized (traciLock) {
@@ -530,33 +505,23 @@ public class SimulationEngine implements ISimulationEngine {
         }
     }
 
-    // =================================================================================
-    // NEW METHODS: FACADE PATTERN IMPLEMENTATION
-    // =================================================================================
-
-    @Override
-    public void forceGreenWave(String trafficLightId) {
-        if (trafficLightManager != null) {
-            trafficLightManager.forceGreen(trafficLightId);
-        }
-    }
-
-    @Override
-    public void forceRedStop(String trafficLightId) {
-        if (trafficLightManager != null) {
-            trafficLightManager.forceRed(trafficLightId);
-        }
-    }
-
     @Override
     public void checkAndHandleCongestion() {
-        if (trafficLightManager != null && infrastructureManager != null) {
-            // 1. Refresh Edge Data
-            infrastructureManager.refreshEdgeData();
-            // 2. Logic decision
-            trafficLightManager.handleCongestion(infrastructureManager.getAllEdges());
+        if (infrastructureManager == null || trafficLightManager == null) {
+            System.err.println("Managers not injected correctly.");
+            return;
         }
-    }  
+
+        infrastructureManager.refreshEdgeData();
+        List<IEdge> edges = infrastructureManager.getAllEdges();
+
+        if (edges == null || edges.isEmpty()) {
+            System.err.println("Edge list is empty.");
+            return;
+        }
+
+        trafficLightManager.handleCongestion(edges);
+    }
 
     // --- DEPENDENCY INJECTION ---
     public void setVehicleManager(IVehicleManager vm) { this.vehicleManager = vm; }
