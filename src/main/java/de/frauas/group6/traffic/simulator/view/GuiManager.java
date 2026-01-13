@@ -2,6 +2,7 @@ package de.frauas.group6.traffic.simulator.view;
 
 import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
+import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import javafx.application.Application;
@@ -22,22 +23,25 @@ public class GuiManager extends Application implements IMapObserver {
     private static IVehicleManager staticVehicleManager;
     private static ITrafficLightManager staticTrafficLightManager;
     private static IStatsCollector staticStatsCollector;
+    private static IInfrastructureManager staticInfrastructureManager;
     
     private ISimulationEngine engine;
     private IVehicleManager vehicleManager;
     private ITrafficLightManager trafficLightManager;
     private IStatsCollector statsCollector;
+    private IInfrastructureManager infraMgr;
     
     private MapView mapView;
     private ControlPanel controlPanel;
     private DashBoard dashboard; 
 
     // Méthode statique pour lancer l'UI depuis le Main
-    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager trafficLightManager,IStatsCollector statsCollector) {
+    public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager trafficLightManager,IStatsCollector statsCollector,IInfrastructureManager infraMgr) {
         staticEngine = engineInstance;
         staticVehicleManager = vmInstance;
         staticTrafficLightManager =  trafficLightManager;
         staticStatsCollector = statsCollector;
+        staticInfrastructureManager = infraMgr;
         new Thread(() -> Application.launch(GuiManager.class)).start();
     }
 
@@ -47,6 +51,7 @@ public class GuiManager extends Application implements IMapObserver {
         this.vehicleManager = staticVehicleManager;
         this.trafficLightManager = staticTrafficLightManager;
         this.statsCollector = staticStatsCollector;
+        this.infraMgr = staticInfrastructureManager;
         
         BorderPane root = new BorderPane();
         
@@ -62,10 +67,10 @@ public class GuiManager extends Application implements IMapObserver {
         sidebar.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #cccccc; -fx-border-width: 0 0 0 1;");
         
         // A. ControlPanel
-        this.controlPanel = new ControlPanel(engine, vehicleManager, trafficLightManager);
+        this.controlPanel = new ControlPanel(engine, vehicleManager, trafficLightManager,infraMgr);
         
         // B. Dashboard
-        this.dashboard = new DashBoard(statsCollector);
+        this.dashboard = new DashBoard(statsCollector,infraMgr);
 
         // Ajout des composants au SplitPane
         sidebar.getItems().addAll(controlPanel, dashboard);

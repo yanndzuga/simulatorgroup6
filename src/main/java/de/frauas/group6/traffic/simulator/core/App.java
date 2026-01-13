@@ -70,7 +70,7 @@ public class App {
             // 5. Start User Interface (View - Member 4)
             // ------------------------------------------------------------
             // Passes the engine and managers to the GUI so controls can work immediately
-            GuiManager.startUI(engine, vehicleMgr,lightMgr,statsCollector);
+            GuiManager.startUI(engine, vehicleMgr,lightMgr,statsCollector,infraMgr);
 
             // ------------------------------------------------------------
             // 6. Start the Simulation Loop

@@ -1,8 +1,12 @@
 package de.frauas.group6.traffic.simulator.view;
 
+import java.util.List;
+import java.util.Optional;
+
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import de.frauas.group6.traffic.simulator.vehicles.IVehicle;
+import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
 import de.frauas.group6.traffic.simulator.infrastructure.ITrafficLightManager;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -14,7 +18,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import java.util.Optional;
+
+
 
 // Changed extension from VBox to ScrollPane to allow scrolling
 public class ControlPanel extends ScrollPane {
@@ -22,7 +27,7 @@ public class ControlPanel extends ScrollPane {
     private ISimulationEngine engine;
     private IVehicleManager vehicleManager;
     private ITrafficLightManager trafficLightManager;
-    
+    private IInfrastructureManager infraMgr;
     private Runnable onRefreshRequest;
     
     // UI Components
@@ -40,10 +45,11 @@ public class ControlPanel extends ScrollPane {
     private Label lblPhaseTime;
     private Label lblTime;
 
-    public ControlPanel(ISimulationEngine engine, IVehicleManager vm, ITrafficLightManager tm) {
+    public ControlPanel(ISimulationEngine engine, IVehicleManager vm, ITrafficLightManager tm, IInfrastructureManager im) {
         this.engine = engine;
         this.vehicleManager = vm;
         this.trafficLightManager = tm;
+        this.infraMgr= im;
         initializeUI();
     }
     
@@ -108,8 +114,12 @@ public class ControlPanel extends ScrollPane {
         txtSelectedId.setDisable(true); 
         
         cbRoute = createStyledCombo("Route");
-        cbRoute.getItems().addAll("R0","R1","R2","R3","R4","R5","R6","R7","R8","R9","R10","R11","R12","R13"); 
-        cbRoute.getSelectionModel().select(0);
+        List<String> routes = infraMgr.loadRouteIds("minimal.rou.xml");
+        cbRoute.getItems().addAll(routes);
+        cbRoute.getSelectionModel().selectFirst();
+        
+        
+       
         
         /*cbLane = createStyledCombo("Lane");
         cbLane.getItems().addAll("Right", "middle", "Left"); 
@@ -318,4 +328,7 @@ public class ControlPanel extends ScrollPane {
         c.setStyle("-fx-background-color: #555; -fx-text-fill: white; -fx-mark-color: white;"); return c;
     }
     private Label createLabel(String t) { Label l = new Label(t); l.setTextFill(Color.WHITE); l.setFont(Font.font(10)); return l; }
+
+
+
 }

@@ -2,10 +2,19 @@ package de.frauas.group6.traffic.simulator.infrastructure;
 
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 import java.awt.geom.Point2D;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 public class InfrastructureManager implements IInfrastructureManager {
     
@@ -39,7 +48,7 @@ public class InfrastructureManager implements IInfrastructureManager {
         // 2. Load Junctions
         List<String> junctionIds = simulationEngine.getJunctionIdList();
         if (junctionIds != null) {
-            for (String id : junctionIds) {
+            for (String id : junctionIds) { 
                 List<Point2D> shape = simulationEngine.getJunctionShape(id);
                 Point2D center = shape.isEmpty() ? new Point2D.Double(0,0) : shape.get(0); 
                 
@@ -50,6 +59,48 @@ public class InfrastructureManager implements IInfrastructureManager {
         initialized = true;
         System.out.println("Infrastructure Loaded: " + edges.size() + " edges, " + junctions.size() + " junctions.");
     }
+    
+    public List<String> loadRouteIds(String resourceName) {
+        List<String> routeIds = new ArrayList<>();
+        try {
+            // Attempt to load the file from the classpath resources
+            InputStream is = getClass().getClassLoader().getResourceAsStream(resourceName);
+            if (is == null) {
+                // Fallback for demo/testing purposes if file is missing
+                System.out.println("Resource not found: " + resourceName + ". Using mock routes.");
+                for(int i=0; i<=5; i++) routeIds.add("route_" + i);
+                return routeIds;
+            }
+
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+            Document doc = dBuilder.parse(is);
+            doc.getDocumentElement().normalize();
+
+            // Look for <route> tags and extract 'id' attribute
+            NodeList nList = doc.getElementsByTagName("route");
+            for (int temp = 0; temp < nList.getLength(); temp++) {
+                org.w3c.dom.Node nNode = nList.item(temp);
+                if (nNode.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
+                    Element eElement = (Element) nNode;
+                    String id = eElement.getAttribute("id");
+                    if (id != null && !id.isEmpty()) {
+                        routeIds.add(id);
+                    }
+                }
+            }
+            Collections.sort(routeIds);
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Graceful degradation
+            routeIds.add("Error Loading Routes");
+        }
+        return routeIds;
+    }
+    
+    
+    
+    
 
     @Override
     public void refreshEdgeData() {

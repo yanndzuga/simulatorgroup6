@@ -4,6 +4,11 @@ import de.frauas.group6.traffic.simulator.analytics.ExportFilter;
 import de.frauas.group6.traffic.simulator.analytics.ExportType;
 import de.frauas.group6.traffic.simulator.analytics.IStatsCollector;
 import de.frauas.group6.traffic.simulator.analytics.StatsCollector;
+import de.frauas.group6.traffic.simulator.infrastructure.IEdge;
+import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
+
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.chart.*;
@@ -11,24 +16,35 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Real-time Dashboard view for traffic analytics.
+ * Displays charts for speed, density, and congestion, and provides an interface for exporting reports.
  */
 public class DashBoard extends StackPane {
 
     private final IStatsCollector statsCollector;
+    private final IInfrastructureManager infraManager;
     
     // --- VIEWS (Containers) ---
-    private ScrollPane mainScrollPane; // ScrollPane for Charts
-    private VBox mainView;             // Charts content
+    private ScrollPane mainScrollPane;
+    private VBox mainView;            
     
-    private ScrollPane exportScrollPane; // NEW: ScrollPane for Export
-    private VBox exportView;             // Export content
+    private ScrollPane exportScrollPane;
+    private VBox exportView;            
 
     // --- CHARTS ---
     private LineChart<String, Number> speedChart;
@@ -44,41 +60,56 @@ public class DashBoard extends StackPane {
     private XYChart.Series<Number, String> congestionSeries;
 
     // --- EXPORT UI ELEMENTS ---
-    private ToggleGroup dataTypeGroup; // Single choice for report type
-    private ToggleGroup formatGroup;   // Single choice for format
+    private Map<ExportType, CheckBox> typeCheckBoxes = new HashMap<>();
+    private ToggleGroup formatGroup;   
     private TextField txtFileName;
+    
+    // Updated filters (ComboBox for Route and Edge selection)
     private ComboBox<String> cbColorFilter;
+    private ComboBox<String> cbRouteIdFilter;
+    private ComboBox<String> cbEdgeIdFilter;
+    private Spinner<Double> spinMinDensity;
+    private Spinner<Double> spinMinTravelTime;
+    private CheckBox cbOnlyCongested;
 
-    public DashBoard(IStatsCollector statsCollector) {
+    /**
+     * Constructor initializing the Dashboard view components.
+     * * @param statsCollector Service for retrieving traffic statistics.
+     * @param infraManager   Service for accessing infrastructure data (edges, nodes).
+     */
+    public DashBoard(IStatsCollector statsCollector, IInfrastructureManager infraManager) {
         this.statsCollector = statsCollector;
+        this.infraManager = infraManager;
         this.setStyle("-fx-background-color: #f8f9fa;"); 
         
-        // 1. Initialize charts view (and its ScrollPane)
+        // 1. Initialize charts view
         initMainView();
         mainScrollPane = new ScrollPane(mainView);
         configureScrollPane(mainScrollPane);
 
-        // 2. Initialize export view (and its ScrollPane)
+        // 2. Initialize export view
         initExportView();
         exportScrollPane = new ScrollPane(exportView);
         configureScrollPane(exportScrollPane);
         
-        // Hide export ScrollPane by default
+        // Initially hide export view
         exportScrollPane.setVisible(false);
 
         // 3. Add BOTH ScrollPanes to the StackPane
         this.getChildren().addAll(mainScrollPane, exportScrollPane);
         
-        // 4. Initial state: show charts
+        // 4. Set initial state
         showMainView();
     }
     
-    // Helper to configure scroll panes consistently
+    /**
+     * Configures common properties for ScrollPanes.
+     */
     private void configureScrollPane(ScrollPane sp) {
         sp.setFitToWidth(true);
         sp.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         sp.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        sp.setPannable(true); // Allows "dragging" with mouse
+        sp.setPannable(true); 
         sp.setStyle("-fx-background: #f8f9fa; -fx-border-color: transparent; -fx-control-inner-background: #f8f9fa;");
     }
 
@@ -86,45 +117,35 @@ public class DashBoard extends StackPane {
     // 1. MAIN VIEW (CHARTS)
     // ==========================================
     private void initMainView() {
-        mainView = new VBox(20);
-        // Generous bottom padding (150px) to ensure the last button is accessible
-        mainView.setPadding(new Insets(20, 20, 20, 20));
+        mainView = new VBox(15); // Reduced spacing for compactness
+        mainView.setPadding(new Insets(15)); 
         mainView.setStyle("-fx-background-color: #f8f9fa;");
         
-        // --- HEADER ---
         HBox header = new HBox();
         header.setAlignment(Pos.CENTER_LEFT);
-        
         Label title = new Label("Real-Time Traffic Analytics");
-        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
+        title.setFont(Font.font("Segoe UI", FontWeight.BOLD, 20)); // Slightly smaller title
         title.setStyle("-fx-text-fill: #2c3e50;");
-        
         header.getChildren().add(title);
 
-        // --- CHART 1: SPEED ---
+        // --- CHARTS INIT ---
         speedChart = createLineChart("Avg Network Speed", "Speed (m/s)");
         speedSeries = new XYChart.Series<>();
         speedSeries.setName("Real-time");
         speedChart.getData().add(speedSeries);
         styleChart(speedChart);
 
-        // --- CHART 2: CONGESTION (Real-Time) ---
-        NumberAxis xAxis = new NumberAxis();
-        xAxis.setLabel("Vehicles on Edge");
-        CategoryAxis yAxis = new CategoryAxis();
-        yAxis.setLabel("Edge ID");
-        
+        NumberAxis xAxis = new NumberAxis(); xAxis.setLabel("Vehicles on Edge");
+        CategoryAxis yAxis = new CategoryAxis(); yAxis.setLabel("Edge ID");
         congestionChart = new BarChart<>(xAxis, yAxis);
         congestionChart.setTitle("Live Congested Edges");
-        congestionChart.setAnimated(false);
-        congestionChart.setLegendVisible(false);
-        congestionChart.setPrefHeight(300);
+        congestionChart.setAnimated(false); 
+        congestionChart.setLegendVisible(false); 
+        congestionChart.setPrefHeight(280); // Adjusted height
         styleChart(congestionChart);
-        
         congestionSeries = new XYChart.Series<>();
         congestionChart.getData().add(congestionSeries);
 
-        // --- OTHER CHARTS ---
         densityChart = createVerticalBarChart("Global Density", "Density");
         densitySeries = new XYChart.Series<>();
         densityChart.getData().add(densitySeries);
@@ -135,136 +156,221 @@ public class DashBoard extends StackPane {
         travelTimeChart.getData().add(travelTimeSeries);
         styleChart(travelTimeChart);
 
-        // --- EXPORT BUTTON (Moved to Bottom) ---
         Button btnGoToExport = new Button("Export Reports ⤓");
-        btnGoToExport.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 14px;");
-        btnGoToExport.setPrefHeight(40);
+        btnGoToExport.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 13px;");
+        btnGoToExport.setPrefHeight(35);
         btnGoToExport.setMaxWidth(Double.MAX_VALUE); 
         btnGoToExport.setOnAction(e -> showExportView());
 
-        // Add charts to container (Stacked vertically)
         mainView.getChildren().addAll(
             header, 
             createCard(speedChart), 
             createCard(congestionChart), 
-            createCard(densityChart),      
-            createCard(travelTimeChart),   
+            createCard(densityChart),       
+            createCard(travelTimeChart),    
             new Separator(),                
             btnGoToExport                   
         );
     }
 
     // ==========================================
-    // 2. EXPORT VIEW (REPLACES CHARTS)
+    // 2. EXPORT VIEW (UPDATED LAYOUT & CONTROLS)
     // ==========================================
     private void initExportView() {
         exportView = new VBox(20);
-        // Generous bottom padding for export as well
-        exportView.setPadding(new Insets(40, 40, 40, 40));
+        exportView.setPadding(new Insets(30));
         exportView.setAlignment(Pos.TOP_CENTER);
         exportView.setStyle("-fx-background-color: #f8f9fa;");
 
-        // Export Title
-        Label lblTitle = new Label("Export Report Wizard");
-        lblTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 26));
+        Label lblTitle = new Label("Export Configuration");
+        lblTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 22));
         lblTitle.setStyle("-fx-text-fill: #2c3e50;");
 
-        // Central white card container
-        VBox card = new VBox(20);
-        card.setMaxWidth(800);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 1);");
+        VBox card = new VBox(20); 
+        card.setMaxWidth(700);
+        card.setPadding(new Insets(25));
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 1);");
 
-        // --- SECTION 1: REPORT TYPE (Radio Buttons) ---
-        Label l1 = new Label("1. Select Report Type (Single Choice)");
-        l1.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        // --- SECTION 1: REPORT TYPES ---
+        Label l1 = new Label("1. Select Data Types");
+        l1.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
         l1.setStyle("-fx-text-fill: #34495e;");
 
         GridPane typeGrid = new GridPane();
-        typeGrid.setHgap(20); typeGrid.setVgap(10);
-        dataTypeGroup = new ToggleGroup();
+        typeGrid.setHgap(15); typeGrid.setVgap(10);
         
         int col = 0; int row = 0;
         for (ExportType type : ExportType.values()) {
-            RadioButton rb = new RadioButton(formatEnumName(type.name()));
-            rb.setUserData(type);
-            rb.setToggleGroup(dataTypeGroup);
-            if (type == ExportType.SUMMARY) rb.setSelected(true); // Default
+            CheckBox cb = new CheckBox(formatEnumName(type.name()));
+            cb.setStyle("-fx-font-size: 12px;"); // Smaller font
+            cb.setSelected(true);
+            typeCheckBoxes.put(type, cb);
 
-            typeGrid.add(rb, col, row);
+            typeGrid.add(cb, col, row);
             col++;
             if (col > 1) { col = 0; row++; }
         }
 
-        // --- SECTION 2: FORMAT (Radio Buttons) ---
-        Label l2 = new Label("2. Select Format");
-        l2.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        // --- SECTION 2: ADVANCED FILTERS ---
+        Label l2 = new Label("2. Filter Data");
+        l2.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
         l2.setStyle("-fx-text-fill: #34495e;");
+
+        VBox filterBox = new VBox(12);
+        
+        // -- Color Filter --
+        cbColorFilter = new ComboBox<>();
+        cbColorFilter.getItems().addAll("All", "Red", "Green", "Yellow");
+        cbColorFilter.getSelectionModel().selectFirst();
+        cbColorFilter.setMaxWidth(Double.MAX_VALUE);
+        cbColorFilter.setStyle("-fx-font-size: 12px;");
+        
+        // -- Route ID Filter (Dynamic XML Loading) --
+        cbRouteIdFilter = new ComboBox<>();
+        // Professional Approach: Load dynamically from XML instead of hardcoding
+        List<String> routes = infraManager.loadRouteIds("minimal.rou.xml");
+        cbRouteIdFilter.getItems().add("All Routes");
+        cbRouteIdFilter.getItems().addAll(routes);
+        cbRouteIdFilter.getSelectionModel().selectFirst();
+        cbRouteIdFilter.setMaxWidth(Double.MAX_VALUE);
+        cbRouteIdFilter.setStyle("-fx-font-size: 12px;");
+
+        // -- Edge ID Filter (Dynamic from Infrastructure) --
+        cbEdgeIdFilter = new ComboBox<>();
+        cbEdgeIdFilter.getItems().add("All Edges");
+        if (infraManager != null) {
+            try {
+                List<IEdge> edges = infraManager.getAllEdges();
+                if (edges != null && !edges.isEmpty()) {
+                    List<String> edgeIds = new ArrayList<>();
+                    for (IEdge edge : edges) {
+                        edgeIds.add(edge.getId());
+                    }
+                    Collections.sort(edgeIds);
+                    cbEdgeIdFilter.getItems().addAll(edgeIds);
+                }
+            } catch (Exception e) {
+                System.err.println("Warning: Could not fetch edges from Infrastructure Manager: " + e.getMessage());
+            }
+        }
+        cbEdgeIdFilter.getSelectionModel().selectFirst();
+        cbEdgeIdFilter.setMaxWidth(Double.MAX_VALUE);
+        cbEdgeIdFilter.setStyle("-fx-font-size: 12px;");
+
+        // -- Numeric Filters --
+        spinMinDensity = new Spinner<>(0.0, 1.0, 0.0, 0.1);
+        spinMinDensity.setEditable(true);
+        spinMinDensity.setMaxWidth(Double.MAX_VALUE);
+        spinMinDensity.setStyle("-fx-font-size: 12px;");
+
+        spinMinTravelTime = new Spinner<>(0.0, 1000.0, 0.0, 5.0);
+        spinMinTravelTime.setEditable(true);
+        spinMinTravelTime.setMaxWidth(Double.MAX_VALUE);
+        spinMinTravelTime.setStyle("-fx-font-size: 12px;");
+
+        cbOnlyCongested = new CheckBox("Show only congested edges");
+        cbOnlyCongested.setStyle("-fx-font-size: 12px;");
+
+        // Adding rows with labels ABOVE inputs for clarity
+        filterBox.getChildren().addAll(
+            createFilterRow("Vehicle Color", cbColorFilter),
+            createFilterRow("Route ID (from XML)", cbRouteIdFilter),
+            createFilterRow("Edge ID (from Infra)", cbEdgeIdFilter),
+            createFilterRow("Min. Edge Density (0.0 - 1.0)", spinMinDensity),
+            createFilterRow("Min. Travel Time (seconds)", spinMinTravelTime),
+            new VBox(5, new Label("Congestion Status"), cbOnlyCongested)
+        );
+
+        // --- SECTION 3: FORMAT ---
+        Label l3 = new Label("3. Output Format");
+        l3.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        l3.setStyle("-fx-text-fill: #34495e;");
 
         HBox formatBox = new HBox(20);
         formatGroup = new ToggleGroup();
-        RadioButton rbCsv = new RadioButton("CSV (Data Table)");
+        RadioButton rbCsv = new RadioButton("CSV");
         rbCsv.setToggleGroup(formatGroup);
         rbCsv.setSelected(true);
+        rbCsv.setStyle("-fx-font-size: 12px;");
         
-        RadioButton rbPdf = new RadioButton("PDF (Printable Report)");
+        RadioButton rbPdf = new RadioButton("PDF");
         rbPdf.setToggleGroup(formatGroup);
+        rbPdf.setStyle("-fx-font-size: 12px;");
+        
         formatBox.getChildren().addAll(rbCsv, rbPdf);
 
-        // --- SECTION 3: FILE & FILTERS ---
-        Label l3 = new Label("3. Settings");
-        l3.setFont(Font.font("Arial", FontWeight.BOLD, 14));
-        l3.setStyle("-fx-text-fill: #34495e;");
-
-        GridPane settingsGrid = new GridPane();
-        settingsGrid.setHgap(15); settingsGrid.setVgap(15);
-
+        // --- SECTION 4: FILENAME ---
+        Label l4 = new Label("4. File Details");
+        l4.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        l4.setStyle("-fx-text-fill: #34495e;");
+        
+        VBox fileBox = new VBox(5);
         txtFileName = new TextField("traffic_report");
         txtFileName.setPromptText("Enter filename...");
-        
-        cbColorFilter = new ComboBox<>();
-        cbColorFilter.getItems().addAll("All", "RED", "GREEN", "BLUE", "YELLOW");
-        cbColorFilter.getSelectionModel().selectFirst();
+        txtFileName.setStyle("-fx-font-size: 12px;");
+        fileBox.getChildren().addAll(new Label("Filename"), txtFileName);
 
-        settingsGrid.addRow(0, new Label("Filename:"), txtFileName);
-        settingsGrid.addRow(1, new Label("Filter Color:"), cbColorFilter);
-
-        // --- BUTTONS BAR ---
-        HBox actions = new HBox(20);
+        // --- BUTTONS ---
+        HBox actions = new HBox(15);
         actions.setAlignment(Pos.CENTER_RIGHT);
-        actions.setPadding(new Insets(20, 0, 0, 0));
+        actions.setPadding(new Insets(15, 0, 0, 0));
 
-        Button btnCancel = new Button("Cancel / Back");
-        btnCancel.setPrefWidth(120);
-        btnCancel.setOnAction(e -> showMainView()); // Back to charts
+        Button btnCancel = new Button("Cancel");
+        btnCancel.setPrefWidth(100);
+        btnCancel.setStyle("-fx-font-size: 12px;");
+        btnCancel.setOnAction(e -> showMainView());
 
-        Button btnConfirm = new Button("Export File");
-        btnConfirm.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        btnConfirm.setPrefWidth(150);
+        Button btnConfirm = new Button("Export");
+        btnConfirm.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px;");
+        btnConfirm.setPrefWidth(120);
         btnConfirm.setOnAction(e -> handleExport());
 
         actions.getChildren().addAll(btnCancel, btnConfirm);
 
-        // Card assembly
         card.getChildren().addAll(
             l1, typeGrid, new Separator(),
-            l2, formatBox, new Separator(),
-            l3, settingsGrid, new Separator(),
+            l2, filterBox, new Separator(),
+            l3, formatBox, new Separator(),
+            l4, fileBox, new Separator(),
             actions
         );
 
         exportView.getChildren().addAll(lblTitle, card);
     }
+    
+    /**
+     * Helper to create a vertical filter row with a label above the control.
+     * This layout ensures the parameter name is visible before interaction.
+     */
+    private VBox createFilterRow(String labelText, Control control) {
+        VBox row = new VBox(3); // Small gap between label and input
+        Label label = new Label(labelText);
+        label.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-text-transform: uppercase;");
+        row.getChildren().addAll(label, control);
+        return row;
+    }
 
     // ==========================================
-    // NAVIGATION LOGIC
+    // DATA LOADING HELPERS (SOPHISTICATED)
+    // ==========================================
+
+    /**
+     * Parses the 'minimal.rou.xml' file from resources to extract route IDs dynamically.
+     * This is more professional than hardcoding "R0"..."R13".
+     * * @param resourceName The name of the XML file in the resources folder.
+     * @return A list of Route IDs found in the XML.
+     */
+   
+    // ==========================================
+    // NAVIGATION
     // ==========================================
     private void showExportView() {
         mainScrollPane.setVisible(false);
-        exportScrollPane.setVisible(true); // Show Export ScrollPane
+        exportScrollPane.setVisible(true);
     }
 
     private void showMainView() {
-        exportScrollPane.setVisible(false); // Hide Export ScrollPane
+        exportScrollPane.setVisible(false);
         mainScrollPane.setVisible(true);
     }
 
@@ -274,42 +380,82 @@ public class DashBoard extends StackPane {
     private void handleExport() {
         if (statsCollector == null) return;
 
-        // 1. Get Type (Unique)
-        RadioButton selectedTypeBtn = (RadioButton) dataTypeGroup.getSelectedToggle();
-        if (selectedTypeBtn == null) {
-            showAlert("Warning", "Please select a report type.");
+        // 1. GATHER SELECTED TYPES
+        List<ExportType> selectedTypes = new ArrayList<>();
+        for (Map.Entry<ExportType, CheckBox> entry : typeCheckBoxes.entrySet()) {
+            if (entry.getValue().isSelected()) {
+                selectedTypes.add(entry.getKey());
+            }
+        }
+
+        if (selectedTypes.isEmpty()) {
+            showAlert("Warning", "Please select at least one data type to include.");
             return;
         }
-        ExportType selectedType = (ExportType) selectedTypeBtn.getUserData();
 
-        // 2. Format
+        // 2. FORMAT
         RadioButton selectedFormatBtn = (RadioButton) formatGroup.getSelectedToggle();
         boolean isCsv = selectedFormatBtn.getText().contains("CSV");
 
-        // 3. Filter
+        // 3. BUILD COMPLETE FILTER
         ExportFilter filter = new ExportFilter();
+        
+        // Color
         if (cbColorFilter.getValue() != null && !"All".equals(cbColorFilter.getValue())) {
             filter.setVehicleColor(cbColorFilter.getValue());
         }
+        
+        // Route ID
+        String routeVal = cbRouteIdFilter.getValue();
+        if (routeVal != null && !routeVal.equals("All Routes") && !routeVal.equals("Error Loading Routes")) {
+            filter.setOnlyRouteId(routeVal);
+        }
+        
+        // Edge ID
+        String edgeVal = cbEdgeIdFilter.getValue();
+        if (edgeVal != null && !edgeVal.equals("All Edges")) {
+            filter.setOnlyEdgeId(edgeVal);
+        }
+        
+        // Min Density
+        Double density = spinMinDensity.getValue();
+        if (density != null && density > 0.0) {
+            filter.setMinEdgeDensity(density);
+        }
+        
+        // Min Travel Time
+        Double travelTime = spinMinTravelTime.getValue();
+        if (travelTime != null && travelTime > 0.0) {
+            filter.setMinAverageTravelTime(travelTime);
+        }
+        
+        // Congested Only
+        filter.setOnlyCongestedEdges(cbOnlyCongested.isSelected());
 
-        // 4. Execution
+        // 4. EXECUTE EXPORT
         try {
-            String fName = txtFileName.getText().trim().isEmpty() ? "report" : txtFileName.getText().trim();
-            fName += "_" + selectedType.name().toLowerCase(); 
+            String fName = txtFileName.getText().trim().isEmpty() ? "traffic_report" : txtFileName.getText().trim();
+            // Sanitize filename
+            fName = fName.replaceAll("[^a-zA-Z0-9._-]", "_");
+            
+            if (selectedTypes.size() == 1) {
+                fName += "_" + selectedTypes.get(0).name().toLowerCase(); 
+            } else {
+                fName += "_full_report";
+            }
+            
             String ext = isCsv ? ".csv" : ".pdf";
             String path = System.getProperty("user.home") + File.separator + fName + ext;
             
-            List<ExportType> singleTypeList = Collections.singletonList(selectedType);
+            if (isCsv) statsCollector.exportToCsv(path, filter, selectedTypes);
+            else statsCollector.exportToPdf(path, filter, selectedTypes);
             
-            if (isCsv) statsCollector.exportToCsv(path, filter, singleTypeList);
-            else statsCollector.exportToPdf(path, filter, singleTypeList);
-            
-            showAlert("Success", "Report exported to:\n" + path);
-            
+            showAlert("Success", "Report exported successfully to:\n" + path);
             showMainView();
             
         } catch (Exception ex) {
             showAlert("Error", "Export failed: " + ex.getMessage());
+            ex.printStackTrace();
         }
     }
 
@@ -317,7 +463,6 @@ public class DashBoard extends StackPane {
     // UPDATE LOOP
     // ==========================================
     public void update() {
-        // Optimization: Do not update charts if on the export page
         if (statsCollector == null || !mainScrollPane.isVisible()) return;
 
         // 1. Avg Network Speed History
@@ -332,6 +477,7 @@ public class DashBoard extends StackPane {
 
         // 2. Real-Time LIVE Congestion
         Map<String, Integer> currentCongestion;
+        // Check implementation type safely
         if (statsCollector instanceof StatsCollector) {
             currentCongestion = ((StatsCollector) statsCollector).getCurrentCongestedEdgeIds();
         } else {
@@ -354,43 +500,54 @@ public class DashBoard extends StackPane {
         Map<String, Double> densities = statsCollector.getEdgeDensity();
         if (densities != null) {
              densitySeries.getData().clear();
-             densities.entrySet().stream().limit(20).forEach(e -> densitySeries.getData().add(new XYChart.Data<>(e.getKey(), e.getValue())));
+             densities.entrySet().stream().limit(15).forEach(e -> densitySeries.getData().add(new XYChart.Data<>(e.getKey(), e.getValue())));
         }
         
-     // 4. Average Travel Time per Route
+        // 4. Average Travel Time per Route
         Map<String, Double> travelTimes = statsCollector.getAverageTravelTime();
         if (travelTimes != null) {
             travelTimeSeries.getData().clear();
             travelTimes.entrySet().stream()
-                .limit(14)
+                .limit(15) // Limit to avoid clutter
                 .forEach(e -> travelTimeSeries.getData().add(new XYChart.Data<>(e.getKey(), e.getValue())));
         }
-  
     }
 
     // --- Helpers ---
     private VBox createCard(Chart chart) {
         VBox card = new VBox(chart);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 5; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 1); -fx-padding: 10;");
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 5; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.05), 5, 0, 0, 1); -fx-padding: 8;");
         return card;
     }
+    
     private void styleChart(XYChart<?, ?> chart) {
-        chart.lookup(".chart-plot-background").setStyle("-fx-background-color: transparent;");
+        // Transparent background for chart plot area
+        if (chart.lookup(".chart-plot-background") != null) {
+            chart.lookup(".chart-plot-background").setStyle("-fx-background-color: transparent;");
+        }
+        // Improve label font size
+        chart.getXAxis().setTickLabelFont(Font.font("Arial", 10));
+        chart.getYAxis().setTickLabelFont(Font.font("Arial", 10));
     }
+    
     private void showAlert(String title, String content) {
         Alert a = new Alert(Alert.AlertType.INFORMATION);
         a.setTitle(title); a.setHeaderText(null); a.setContentText(content);
         a.showAndWait();
     }
+    
     private String formatEnumName(String name) {
+        if (name == null || name.isEmpty()) return "";
         return name.charAt(0) + name.substring(1).toLowerCase().replace('_', ' ');
     }
+    
     private LineChart<String, Number> createLineChart(String t, String y) {
         CategoryAxis x = new CategoryAxis(); NumberAxis ya = new NumberAxis(); ya.setLabel(y);
         LineChart<String,Number> lc = new LineChart<>(x, ya);
         lc.setTitle(t); lc.setAnimated(false); lc.setLegendVisible(false); lc.setPrefHeight(250);
         return lc;
     }
+    
     private BarChart<String, Number> createVerticalBarChart(String t, String y) {
         CategoryAxis x = new CategoryAxis(); NumberAxis ya = new NumberAxis(); ya.setLabel(y);
         BarChart<String,Number> bc = new BarChart<>(x, ya);

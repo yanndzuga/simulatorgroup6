@@ -131,7 +131,7 @@ public class MapView extends Pane {
         // 2. Infrastructure (Roads & Junctions)
         drawInfrastructure(gc);
 
-        // 3. Traffic Lights (Drawn above roads but below vehicles for visibility - or above vehicles?)
+        // 3. Traffic Lights (Drawn above roads but below vehicles for visibility )
         // Currently drawing them before vehicles.
         drawDetailedTrafficLights(gc);
 
