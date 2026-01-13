@@ -22,6 +22,8 @@ public class TrafficLightManager implements ITrafficLightManager {
             initializeMap();
             initialized = true;
         }
+        
+        
 
         for (ITrafficLight tl : trafficLights.values()) {
             try {

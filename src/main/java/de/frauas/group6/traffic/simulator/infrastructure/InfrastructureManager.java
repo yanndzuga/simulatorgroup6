@@ -2,6 +2,7 @@ package de.frauas.group6.traffic.simulator.infrastructure;
 
 import de.frauas.group6.traffic.simulator.core.ISimulationEngine;
 import java.awt.geom.Point2D;
+import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -97,6 +98,33 @@ public class InfrastructureManager implements IInfrastructureManager {
         }
         return routeIds;
     }
+    
+    
+    
+    
+    public Map<String, List<String>> loadRoutes (String filePath) { 
+    	  try { // Create a File object pointing to the XML file 
+    	   File xmlFile = new File(filePath); // Create a factory for building DOM parsers 
+    	   Map<String, List<String>>  routeEdges= new HashMap<>(); 
+    	   DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance(); // Create a DocumentBuilder from the factory 
+    	   DocumentBuilder builder = factory.newDocumentBuilder(); // Parse the XML file into a DOM Document 
+    	   org.w3c.dom.Document doc = builder.parse(xmlFile); // Get a List of all <route> elements in the XML 
+    	   NodeList routeNodes = doc.getElementsByTagName("route"); // Loop over each <route> element 
+    	   
+    	   
+    	   for (int i = 0; i < routeNodes.getLength(); i++) { // Cast the current node to an Element 
+    	    Element routeElement = (Element) routeNodes.item(i); // Read the value of the "id" attribute 
+    	    String routeId = routeElement.getAttribute("id"); // Read the value of the "edges" attribute 
+    	    String edgesAttr = routeElement.getAttribute("edges"); 
+    	    List<String> edges = List.of(edgesAttr.trim().split("\\s+")); 
+    	    routeEdges.put(routeId, edges); } 
+    	   return routeEdges;
+    	   } catch (Exception e) { throw new RuntimeException("Failed to load routes from XML", e);
+    	   }
+    	  }
+    
+    
+    
     
     
     

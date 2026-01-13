@@ -53,6 +53,9 @@ import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
 
 public class StatsCollector implements IStatsCollector {
 	
+	private final IVehicleManager vehicleManager;
+	private final IInfrastructureManager infrastructureManager;
+	private final ISimulationEngine simulationEngine;
 	private final Map<String, IVehicle> vehicleById = new HashMap<>();
 	private final Map<String, List<Double>> speedPerVehiclePerStep = new HashMap<>();
 	private final Map<String, List<String>> edgePerVehiclePerStep = new  HashMap<>();
@@ -80,14 +83,12 @@ public class StatsCollector implements IStatsCollector {
 	    }
 	}
 
-	private final IVehicleManager vehicleManager;
-	private final IInfrastructureManager infrastructureManager;
-	private final ISimulationEngine simulationEngine;
+	
 	public StatsCollector(IVehicleManager vehicleManager, IInfrastructureManager infrastructureManager, ISimulationEngine simulationEngine) {
 		this.vehicleManager = vehicleManager;
 	    this.infrastructureManager = infrastructureManager;
 	    this.simulationEngine = simulationEngine;
-	    initRoutesFromInfrastructure("minimal.rou.xml");
+	    initRoutesFromInfrastructure("D:\\simulatorgroup6\\src\\main\\resources\\minimal.rou.xml");
 	    initAvgTravelTimeRouteList();       
 	}
 	
