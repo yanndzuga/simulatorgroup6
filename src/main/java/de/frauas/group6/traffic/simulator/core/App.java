@@ -44,7 +44,7 @@ public class App {
             ITrafficLightManager lightMgr = new TrafficLightManager(engine);
             IInfrastructureManager infraMgr = new InfrastructureManager(engine);
          // Member 5:
-            IStatsCollector statsCollector = new StatsCollector(vehicleMgr,infraMgr,lightMgr,engine);
+            IStatsCollector statsCollector = new StatsCollector(vehicleMgr,infraMgr,engine);
             
             
             
