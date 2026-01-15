@@ -36,7 +36,7 @@ public  class VehicleManager implements IVehicleManager {
         this.Vehicles = new ConcurrentHashMap<>();
         this.creationTimes = new ConcurrentHashMap<>();
         counter = (long) 0;
-        System.out.println("ATTENTION: A new VehicleManager has been created! " + this);
+        LOGGER.info("ATTENTION: A new VehicleManager has been created! " + this);
     }
 
     /**
@@ -47,7 +47,7 @@ public  class VehicleManager implements IVehicleManager {
             String vehicleId;
             String TypeId = "";
             List<String> successfullyAddedIds = new ArrayList<>();
-            byte edgeLane = -5;
+            byte edgeLane = 0;
             int r = 0, g = 0, b = 0;
            boolean isvisible=false;
            final double SPEED_TOLERANCE = 0.1;
@@ -196,12 +196,10 @@ public  class VehicleManager implements IVehicleManager {
                 try {
                     Point2D newPos = SumolationEngine.getVehiclePosition(id);
                     String newEdgeId = SumolationEngine.getVehicleRoadId(id);
-                    int newLane = SumolationEngine.getVehicleLaneIndex(id);
                     double newVit = SumolationEngine.getVehicleSpeed(id);
 
                     vehicle.setPosition(newPos);
                     vehicle.setEdgeId(newEdgeId);
-                    vehicle.setEdgeLane((byte) newLane);
                     vehicle.setSpeed(newVit);
 
                     // If active, we can remove it from the creation grace period list.

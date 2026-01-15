@@ -5,15 +5,37 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 
 public class TrafficLightManager implements ITrafficLightManager {
 
+    private static final Logger LOGGER = Logger.getLogger(TrafficLightManager.class.getName());
+
     private ISimulationEngine simulationEngine;
+    private IInfrastructureManager infrastructureManager;
     private final Map<String, ITrafficLight> trafficLights = new HashMap<>();
+    
+    // Cooldown timer
+    private final Map<String, Long> lastActionTime = new HashMap<>();
+    private final long COOLDOWN_MS = 10000; 
+
+    // Config for J55
+    private final Map<String, Integer> altGreenPhaseMap = new HashMap<>();
     private boolean initialized = false;
 
-    public TrafficLightManager(ISimulationEngine simulationEngine) {
+    public TrafficLightManager(ISimulationEngine simulationEngine, IInfrastructureManager infraMgr) {
+        if (simulationEngine == null) {
+            LOGGER.severe("SimulationEngine is NULL!"); 
+            throw new InfrastructureException("Cannot start: Engine is null.");
+        }
+
         this.simulationEngine = simulationEngine;
+        this.infrastructureManager = infraMgr;
+        
+        altGreenPhaseMap.put("J55", 4); 
+        
+        LOGGER.info("TrafficLightManager Started.");
     }
 
     @Override
@@ -22,8 +44,7 @@ public class TrafficLightManager implements ITrafficLightManager {
             initializeMap();
             initialized = true;
         }
-        
-        
+        checkAndHandleCongestion();
 
         for (ITrafficLight tl : trafficLights.values()) {
             try {
@@ -35,7 +56,7 @@ public class TrafficLightManager implements ITrafficLightManager {
                 tl.setCurrentState(state);
                 tl.setRemainingTime(time);
             } catch (Exception e) {
-                System.err.println("Error updating TrafficLight " + tl.getId());
+                LOGGER.log(Level.WARNING, "Error updating TL: " + tl.getId(), e);
             }
         }
     }
@@ -49,6 +70,7 @@ public class TrafficLightManager implements ITrafficLightManager {
             tl.setControlledLanes(simulationEngine.getControlledLanes(id));
             trafficLights.put(id, tl);
         }
+        LOGGER.info("Loaded " + trafficLights.size() + " traffic lights.");
     }
 
     @Override
@@ -65,6 +87,9 @@ public class TrafficLightManager implements ITrafficLightManager {
     public void switchPhase(String tlId, int newPhase) {
         if (trafficLights.containsKey(tlId)) {
             simulationEngine.setTrafficLightPhase(tlId, newPhase);
+            LOGGER.info("Switching " + tlId + " -> Phase " + newPhase);
+        } else {
+            LOGGER.warning("Unknown TL: " + tlId);
         }
     }
 
@@ -75,62 +100,30 @@ public class TrafficLightManager implements ITrafficLightManager {
         }
     }
 
-    // =========================================================
-    // SMART FEATURES (Force & Congestion Logic)
-    // =========================================================
-    /*
     @Override
     public void forceGreen(String tlId) {
         if (!trafficLights.containsKey(tlId)) return;
         
-        System.out.println(">>> TrafficManager: Action FORCE GREEN on " + tlId);
-        // Assuming Phase 0 is Green
-        simulationEngine.setTrafficLightPhase(tlId, 0); 
-        simulationEngine.setTrafficLightDuration(tlId, 60); 
-    }
-
-    @Override
-    public void forceRed(String tlId) {
-        if (!trafficLights.containsKey(tlId)) return;
-
-        System.out.println(">>> TrafficManager: Action FORCE RED on " + tlId);
-        // Assuming Phase 2 is Red/Yellow
-        simulationEngine.setTrafficLightPhase(tlId, 2); 
-        simulationEngine.setTrafficLightDuration(tlId, 60); 
-    }*/
-    
-    
-    
-    @Override
-    public void forceGreen(String tlId) {
-        if (!trafficLights.containsKey(tlId)) return;
+       LOGGER.info(">>> TrafficManager: Action FORCE GREEN on " + tlId);
         
-        System.out.println(">>> TrafficManager: Action FORCE GREEN on " + tlId);
-        
-        int greenPhase = 0; // Défaut (Souvent Nord-Sud)
+        int greenPhase = 0; // 
 
-        // Adaptation spécifique à votre réseau SUMO (minimal.net.xml)
+        
         if (tlId.equals("J55")) {
-            // Pour J55, la phase 0 est Vert pour N/S (E45/E46)
-            // La phase 4 est Vert pour E/W (E48/E47)
-            // On regarde la phase actuelle : si on est déjà en 0, on passe en 4 pour alterner
+            
             try {
                 int current = simulationEngine.getTrafficLightPhase(tlId);
                 if (current == 0 || current == 1 || current == 2 || current == 3) {
-                    greenPhase = 4; // On force l'autre axe (Est-Ouest / E48)
+                    greenPhase = 4; 
                 } else {
-                    greenPhase = 0; // On revient sur l'axe Nord-Sud
+                    greenPhase = 0;
                 }
-            } catch (Exception e) {
-                greenPhase = 4; // Fallback sur E48 si erreur
+            }  catch (Exception e) {
+                greenPhase = 4; 
             }
         } 
         else if (tlId.equals("J57")) {
-            // Logique similaire pour J57 si besoin
-            // Phase 0 (GGGrr...) semble être l'axe E50/E49
-            // Phase 2 (GrrGG...) 
-            // Phase 4 (rrrr...) semble être l'autre axe
-            // On applique une logique simple d'alternance
+           
              try {
                 int current = simulationEngine.getTrafficLightPhase(tlId);
                 if (current == 0) greenPhase = 2; // Alternance
@@ -139,14 +132,14 @@ public class TrafficLightManager implements ITrafficLightManager {
         }
 
         simulationEngine.setTrafficLightPhase(tlId, greenPhase); 
-        simulationEngine.setTrafficLightDuration(tlId, 60); 
+        
     }
 
     @Override
     public void forceRed(String tlId) {
         if (!trafficLights.containsKey(tlId)) return;
 
-        System.out.println(">>> TrafficManager: Action FORCE RED on " + tlId);
+        LOGGER.info(">>> TrafficManager: Action FORCE RED on " + tlId);
         
         // Phase "Tout Rouge" ou Phase Jaune -> Rouge
         // Dans votre fichier, Phase 2 est souvent une transition rouge pour l'axe principal
@@ -158,45 +151,51 @@ public class TrafficLightManager implements ITrafficLightManager {
         }
 
         simulationEngine.setTrafficLightPhase(tlId, redPhase); 
-        simulationEngine.setTrafficLightDuration(tlId, 60); 
+        
     }
 
     @Override
     public void handleCongestion(List<IEdge> edges) {
-        // List to track TLs modified in this loop to avoid conflicts
-        List<String> processedTLs = new ArrayList<>();
+        long now = System.currentTimeMillis();
 
         for (IEdge edge : edges) {
-            // 1. Condition: More than 25 vehicles
-            if (edge.getVehicleCount() > 25) {
+            if (edge.getVehicleCount() > 7) { 
                 
-                // 2. Find relevant Traffic Light
                 String targetTlId = findTrafficLightForEdge(edge.getId());
                 
                 if (targetTlId != null) {
-                    // 3. Check if TL was already modified in this cycle
-                    if (!processedTLs.contains(targetTlId)) {
-                        System.out.println("Congestion Detected: Edge " + edge.getId() + 
-                                           " has " + edge.getVehicleCount() + " vehicles.");
+                    long lastTime = lastActionTime.getOrDefault(targetTlId, 0L);
+                    
+                    if (now - lastTime > COOLDOWN_MS) {
+                        LOGGER.warning("Congestion detected (" + edge.getId() + ") -> Action on " + targetTlId);
                         
-                        // 4. Action
                         forceGreen(targetTlId);
-                        
-                        // 5. Mark as processed
-                        processedTLs.add(targetTlId);
-                        
-                    } else {
-                        System.out.println("INFO: Edge " + edge.getId() + " is also congested, " +
-                                           "but TL " + targetTlId + " is already being handled.");
-                    }
+                        lastActionTime.put(targetTlId, now);
+                    } 
                 }
             }
         }
     }
+    
+    public void checkAndHandleCongestion() {
+        if (infrastructureManager == null) {
+            System.err.println("Error: infrastructureManager is NULL!");
+            return;
+        }
+
+        infrastructureManager.refreshEdgeData();
+        List<IEdge> edges = infrastructureManager.getAllEdges();
+
+        if (edges == null || edges.isEmpty()) {
+            System.err.println("Warning: Edge list is empty!");
+            return;
+        }
+
+        handleCongestion(edges);
+    }
 
     private String findTrafficLightForEdge(String edgeId) {
         String possibleLaneId = edgeId + "_0"; 
-        
         for (ITrafficLight tl : trafficLights.values()) {
             List<String> lanes = tl.getControlledLanes();
             if (lanes != null && lanes.contains(possibleLaneId)) {

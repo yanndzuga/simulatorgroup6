@@ -40,11 +40,16 @@ public class App {
             // Member 2: Vehicles
             IVehicleManager vehicleMgr = new VehicleManager(engine);
             
+      		
             // Member 3: Infrastructure (Traffic Lights) - Placeholder if not ready
-            ITrafficLightManager lightMgr = new TrafficLightManager(engine);
             IInfrastructureManager infraMgr = new InfrastructureManager(engine);
-         // Member 5:
+            ITrafficLightManager lightMgr = new TrafficLightManager(engine,infraMgr);
+
+            
+            // Member 5:
             IStatsCollector statsCollector = new StatsCollector(vehicleMgr,infraMgr,engine);
+          
+         
             
             
             

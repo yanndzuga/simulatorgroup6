@@ -9,6 +9,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -19,6 +20,7 @@ import org.w3c.dom.NodeList;
 
 public class InfrastructureManager implements IInfrastructureManager {
     
+    private static final Logger LOGGER = Logger.getLogger(InfrastructureManager.class.getName());
     private ISimulationEngine simulationEngine;
     
     private final Map<String, IEdge> edges = new HashMap<>();
@@ -33,7 +35,7 @@ public class InfrastructureManager implements IInfrastructureManager {
     public void loadNetwork() {
         if (initialized) return;
 
-        System.out.println("Loading network infrastructure from SUMO...");
+        LOGGER.info("Loading network infrastructure from SUMO...");
 
         // 1. Load Edges
         List<String> edgeIds = simulationEngine.getEdgeIdList();
@@ -58,7 +60,7 @@ public class InfrastructureManager implements IInfrastructureManager {
         }
 
         initialized = true;
-        System.out.println("Infrastructure Loaded: " + edges.size() + " edges, " + junctions.size() + " junctions.");
+        LOGGER.info("Infrastructure Loaded: " + edges.size() + " edges, " + junctions.size() + " junctions.");
     }
     
     public List<String> loadRouteIds(String resourceName) {
@@ -122,6 +124,7 @@ public class InfrastructureManager implements IInfrastructureManager {
     	   } catch (Exception e) { throw new RuntimeException("Failed to load routes from XML", e);
     	   }
     	  }
+    
     
     
     

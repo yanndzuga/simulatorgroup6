@@ -102,6 +102,63 @@ public class DashBoard extends StackPane {
         showMainView();
     }
     
+    
+    
+    
+ // ==========================================
+    // UPDATE LOOP
+    // ==========================================
+    public void update() {
+        if (statsCollector == null || !mainScrollPane.isVisible()) return;
+
+        // 1. Avg Network Speed History
+        List<Double> history = statsCollector.getSpeedHistory();
+        if (history != null && !history.isEmpty()) {
+            int start = Math.max(0, history.size() - 30);
+            speedSeries.getData().clear();
+            for (int i = start; i < history.size(); i++) {
+                speedSeries.getData().add(new XYChart.Data<>(String.valueOf(i), history.get(i)));
+            }
+        }
+
+        // 2. Real-Time LIVE Congestion
+        Map<String, Integer> currentCongestion;
+        // Check implementation type safely
+        if (statsCollector instanceof StatsCollector) {
+            currentCongestion = ((StatsCollector) statsCollector).getCurrentCongestedEdgeIds();
+        } else {
+            currentCongestion = statsCollector.getCongestedEdgeIds(); 
+        }
+
+        congestionSeries.getData().clear();
+        if (currentCongestion != null && !currentCongestion.isEmpty()) {
+            currentCongestion.entrySet().stream()
+                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
+                .limit(5)
+                .forEach(e -> {
+                    XYChart.Data<Number, String> data = new XYChart.Data<>(e.getValue(), e.getKey());
+                    congestionSeries.getData().add(data);
+                    if (data.getNode() != null) data.getNode().setStyle("-fx-bar-fill: #e74c3c;");
+                });
+        }
+        
+        // 3. Edge Densities
+        Map<String, Double> densities = statsCollector.getEdgeDensity();
+        if (densities != null) {
+             densitySeries.getData().clear();
+             densities.entrySet().stream().limit(15).forEach(e -> densitySeries.getData().add(new XYChart.Data<>(e.getKey(), e.getValue())));
+        }
+        
+        // 4. Average Travel Time per Route
+        Map<String, Double> travelTimes = statsCollector.getAverageTravelTime();
+        if (travelTimes != null) {
+            travelTimeSeries.getData().clear();
+            travelTimes.entrySet().stream()
+                .limit(15) // Limit to avoid clutter
+                .forEach(e -> travelTimeSeries.getData().add(new XYChart.Data<>(e.getKey(), e.getValue())));
+        }
+    }
+    
     /**
      * Configures common properties for ScrollPanes.
      */
@@ -350,16 +407,7 @@ public class DashBoard extends StackPane {
         return row;
     }
 
-    // ==========================================
-    // DATA LOADING HELPERS (SOPHISTICATED)
-    // ==========================================
-
-    /**
-     * Parses the 'minimal.rou.xml' file from resources to extract route IDs dynamically.
-     * This is more professional than hardcoding "R0"..."R13".
-     * * @param resourceName The name of the XML file in the resources folder.
-     * @return A list of Route IDs found in the XML.
-     */
+   
    
     // ==========================================
     // NAVIGATION
@@ -459,59 +507,7 @@ public class DashBoard extends StackPane {
         }
     }
 
-    // ==========================================
-    // UPDATE LOOP
-    // ==========================================
-    public void update() {
-        if (statsCollector == null || !mainScrollPane.isVisible()) return;
-
-        // 1. Avg Network Speed History
-        List<Double> history = statsCollector.getSpeedHistory();
-        if (history != null && !history.isEmpty()) {
-            int start = Math.max(0, history.size() - 30);
-            speedSeries.getData().clear();
-            for (int i = start; i < history.size(); i++) {
-                speedSeries.getData().add(new XYChart.Data<>(String.valueOf(i), history.get(i)));
-            }
-        }
-
-        // 2. Real-Time LIVE Congestion
-        Map<String, Integer> currentCongestion;
-        // Check implementation type safely
-        if (statsCollector instanceof StatsCollector) {
-            currentCongestion = ((StatsCollector) statsCollector).getCurrentCongestedEdgeIds();
-        } else {
-            currentCongestion = statsCollector.getCongestedEdgeIds(); 
-        }
-
-        congestionSeries.getData().clear();
-        if (currentCongestion != null && !currentCongestion.isEmpty()) {
-            currentCongestion.entrySet().stream()
-                .sorted((e1, e2) -> e2.getValue().compareTo(e1.getValue()))
-                .limit(5)
-                .forEach(e -> {
-                    XYChart.Data<Number, String> data = new XYChart.Data<>(e.getValue(), e.getKey());
-                    congestionSeries.getData().add(data);
-                    if (data.getNode() != null) data.getNode().setStyle("-fx-bar-fill: #e74c3c;");
-                });
-        }
-        
-        // 3. Edge Densities
-        Map<String, Double> densities = statsCollector.getEdgeDensity();
-        if (densities != null) {
-             densitySeries.getData().clear();
-             densities.entrySet().stream().limit(15).forEach(e -> densitySeries.getData().add(new XYChart.Data<>(e.getKey(), e.getValue())));
-        }
-        
-        // 4. Average Travel Time per Route
-        Map<String, Double> travelTimes = statsCollector.getAverageTravelTime();
-        if (travelTimes != null) {
-            travelTimeSeries.getData().clear();
-            travelTimes.entrySet().stream()
-                .limit(15) // Limit to avoid clutter
-                .forEach(e -> travelTimeSeries.getData().add(new XYChart.Data<>(e.getKey(), e.getValue())));
-        }
-    }
+    
 
     // --- Helpers ---
     private VBox createCard(Chart chart) {
