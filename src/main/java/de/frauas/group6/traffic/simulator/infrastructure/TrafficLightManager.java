@@ -155,7 +155,7 @@ public class TrafficLightManager implements ITrafficLightManager {
     }
 
     @Override
-    public void handleCongestion(List<IEdge> edges) {
+    private void handleCongestion(List<IEdge> edges) {
         long now = System.currentTimeMillis();
 
         for (IEdge edge : edges) {
@@ -177,7 +177,7 @@ public class TrafficLightManager implements ITrafficLightManager {
         }
     }
     
-    public void checkAndHandleCongestion() {
+    private void checkAndHandleCongestion() {
         if (infrastructureManager == null) {
             System.err.println("Error: infrastructureManager is NULL!");
             return;
