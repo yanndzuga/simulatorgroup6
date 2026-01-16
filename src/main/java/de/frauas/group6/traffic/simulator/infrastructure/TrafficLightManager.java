@@ -93,7 +93,7 @@ public class TrafficLightManager implements ITrafficLightManager {
         }
     }
 
-    @Override
+    
     public void setDuration(String tlId, int durationSeconds) {
         if (trafficLights.containsKey(tlId)) {
             simulationEngine.setTrafficLightDuration(tlId, durationSeconds);
@@ -154,7 +154,7 @@ public class TrafficLightManager implements ITrafficLightManager {
         
     }
 
-    @Override
+   
     private void handleCongestion(List<IEdge> edges) {
         long now = System.currentTimeMillis();
 
