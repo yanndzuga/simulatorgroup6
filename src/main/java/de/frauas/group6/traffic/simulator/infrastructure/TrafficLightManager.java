@@ -107,6 +107,12 @@ public class TrafficLightManager implements ITrafficLightManager {
         }
     }
 
+    public void setDuration(String tlId, int durationSeconds) {
+        if (trafficLights.containsKey(tlId)) {
+            simulationEngine.setTrafficLightDuration(tlId, durationSeconds);
+        }
+    }
+
     @Override
     public void forceGreen(String tlId) {
         if (!trafficLights.containsKey(tlId)) return;
@@ -195,7 +201,9 @@ public class TrafficLightManager implements ITrafficLightManager {
      * Iterates through edges to find heavy traffic.
      * @param edges List of all road edges
      */
-    public void handleCongestion(List<IEdge> edges) {
+   
+   
+    private void handleCongestion(List<IEdge> edges) {
         long now = System.currentTimeMillis();
         
         for (IEdge edge : edges) {
@@ -218,7 +226,7 @@ public class TrafficLightManager implements ITrafficLightManager {
         }
     }
     
-    public void checkAndHandleCongestion() {
+    private void checkAndHandleCongestion() {
         if (infrastructureManager == null) {
         	 LOGGER.warning("Error: infrastructureManager is NULL!");
             return;
