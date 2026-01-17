@@ -1,10 +1,5 @@
 package de.frauas.group6.traffic.simulator.analytics;
-import java.io.File;
-import java.util.List;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
+
 // --- Java utility and concurrency classes (collections, maps, Logging) ---
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -88,7 +83,7 @@ public class StatsCollector implements IStatsCollector {
 		this.vehicleManager = vehicleManager;
 	    this.infrastructureManager = infrastructureManager;
 	    this.simulationEngine = simulationEngine;
-	    initRoutesFromInfrastructure("D:\\simulatorgroup6\\src\\main\\resources\\minimal.rou.xml");
+	    initRoutesFromInfrastructure("minimal.rou.xml");
 	    initAvgTravelTimeRouteList();       
 	}
 	

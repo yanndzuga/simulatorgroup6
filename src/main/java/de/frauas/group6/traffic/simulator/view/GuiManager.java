@@ -1,5 +1,6 @@
 package de.frauas.group6.traffic.simulator.view;
 
+import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -12,9 +13,14 @@ import de.frauas.group6.traffic.simulator.vehicles.IVehicleManager;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Orientation;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.SceneAntialiasing;
 import javafx.scene.SubScene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.SplitPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
@@ -25,15 +31,15 @@ import javafx.stage.Stage;
  * Implements the MapObserver interface to receive updates from the simulation engine.
  * * Responsibilities:
  * - Initializes the JavaFX application window.
+ * - Prompts user for Map Mode (2D or 3D).
  * - Sets up the layout (Map, Sidebar, Dashboard).
- * - Manages user input on the 3D Map (Zoom, Pan, Rotate).
  * - Refreshes UI components upon simulation ticks.
  */
 public class GuiManager extends Application implements IMapObserver {
 
     private static final Logger LOGGER = Logger.getLogger(GuiManager.class.getName());
 
-    // Static references to pass dependencies from the main Application entry point (App.java) to JavaFX start()
+    // Static references to pass dependencies from App.java
     private static ISimulationEngine staticEngine;
     private static IVehicleManager staticVehicleManager;
     private static ITrafficLightManager staticTrafficLightManager;
@@ -50,21 +56,19 @@ public class GuiManager extends Application implements IMapObserver {
     // UI Components
     private ControlPanel controlPanel;
     private DashBoard dashboard; 
-    private MapView3D mapView3D; 
     
-    // Mouse Interaction State
+    // Map Components (Only one will be active)
+    private MapView3D mapView3D; 
+    private MapView mapView2D;
+    private boolean is3DMode = true; // Default
+    
+    // Mouse Interaction State (For 3D)
     private double mousePosX;
     private double mousePosY;
     private double zoomZ;
 
     /**
      * Static method to launch the JavaFX UI from the main Java application.
-     * Stores dependencies in static fields to be accessible in the start() method.
-     * * @param engineInstance The simulation engine instance.
-     * @param vmInstance The vehicle manager instance.
-     * @param trafficLightManager The traffic light manager instance.
-     * @param statsCollector The statistics collector instance.
-     * @param infraMgr The infrastructure manager instance.
      */
     public static void startUI(ISimulationEngine engineInstance, IVehicleManager vmInstance, ITrafficLightManager trafficLightManager, IStatsCollector statsCollector, IInfrastructureManager infraMgr) {
         staticEngine = engineInstance;
@@ -73,59 +77,49 @@ public class GuiManager extends Application implements IMapObserver {
         staticStatsCollector = statsCollector;
         staticInfrastructureManager = infraMgr;
         
-        // Launch JavaFX in a separate thread to avoid blocking the main thread
         new Thread(() -> Application.launch(GuiManager.class)).start();
     }
 
-    /**
-     * Main entry point for the JavaFX Application thread.
-     * Initializes the stage, scene, and all UI components.
-     * * @param primaryStage The primary stage for this application.
-     */
     @Override
     public void start(Stage primaryStage) {
         try {
-            // Retrieve dependencies from static fields
+            // Retrieve dependencies
             this.engine = staticEngine;
             this.vehicleManager = staticVehicleManager;
             this.trafficLightManager = staticTrafficLightManager;
             this.statsCollector = staticStatsCollector;
             this.infraMgr = staticInfrastructureManager;
             
+            // 1. Prompt User for Map Mode (2D vs 3D)
+            promptForMapMode();
+
+            // 2. Initialize Common Components (ControlPanel, Dashboard)
+            initializeCommonComponents();
+
+            // 3. Setup Layout
             BorderPane root = new BorderPane();
-            
-            // 1. Setup the Sidebar (Control Panel + Dashboard)
             SplitPane sidebar = createSidebar();
             
-            // 2. Setup the 3D Map View
-            // We initialize ControlPanel first (inside createSidebar) so it can be passed to MapView3D if needed
-            // NOTE: MapView3D constructor might need adjustment if ControlPanel is a dependency
-            this.mapView3D = new MapView3D(engine, vehicleManager, controlPanel);
+            // 4. Create Map View based on selection
+            Node mapNode = createMapNode(root, sidebar);
             
-            SubScene subScene = createMapSubScene();
-            StackPane mapContainer = new StackPane(subScene);
-            root.setCenter(mapContainer);
-            
-            // Bind SubScene size to the center area
-            subScene.widthProperty().bind(root.widthProperty().subtract(sidebar.widthProperty())); 
-            subScene.heightProperty().bind(root.heightProperty());
-
+            root.setCenter(mapNode);
             root.setRight(sidebar);
 
-            // 3. Configure Scene and Stage
+            // 5. Configure Scene
             Scene scene = new Scene(root, 1280, 800);
-            primaryStage.setTitle("Traffic Simulator - Group 6");
+            primaryStage.setTitle("Traffic Simulator - Group 6 (" + (is3DMode ? "3D Mode" : "2D Mode") + ")");
             primaryStage.setScene(scene);
             
             setupCloseHandler(primaryStage);
             
-            // Register this GUI as an observer to the engine
+            // Register Observer
             if (engine != null) {
                 engine.setMapObserver(this);
             }
             
             primaryStage.show();
-            LOGGER.info("GUI started successfully.");
+            LOGGER.info("GUI started successfully in " + (is3DMode ? "3D" : "2D") + " mode.");
 
         } catch (Exception e) {
             LOGGER.log(Level.SEVERE, "Failed to start GUI", e);
@@ -134,47 +128,84 @@ public class GuiManager extends Application implements IMapObserver {
     }
 
     /**
-     * Creates the sidebar containing the Control Panel and Dashboard.
-     * * @return Configured SplitPane for the sidebar.
+     * Shows a dialog to let the user choose the visualization mode.
+     * Blocks until a choice is made.
      */
+    private void promptForMapMode() {
+        Alert alert = new Alert(AlertType.CONFIRMATION);
+        alert.setTitle("Select Visualization Mode");
+        alert.setHeaderText("Choose Map Type");
+        alert.setContentText("How would you like to view the simulation?");
+
+        ButtonType buttonType3D = new ButtonType("3D View");
+        ButtonType buttonType2D = new ButtonType("2D View");
+        ButtonType buttonTypeCancel = new ButtonType("Cancel", ButtonData.CANCEL_CLOSE);
+
+        alert.getButtonTypes().setAll(buttonType3D, buttonType2D, buttonTypeCancel);
+
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.isPresent()) {
+            if (result.get() == buttonType3D) {
+                is3DMode = true;
+            } else if (result.get() == buttonType2D) {
+                is3DMode = false;
+            } else {
+                // Cancelled
+                Platform.exit();
+                System.exit(0);
+            }
+        }
+    }
+
+    private void initializeCommonComponents() {
+        this.controlPanel = new ControlPanel(engine, vehicleManager, trafficLightManager, infraMgr);
+        this.dashboard = new DashBoard(statsCollector, infraMgr);
+    }
+
     private SplitPane createSidebar() {
         SplitPane sidebar = new SplitPane();
         sidebar.setOrientation(Orientation.VERTICAL);
         sidebar.setPrefWidth(320);
         sidebar.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #cccccc; -fx-border-width: 0 0 0 1;");
-        
-        // Initialize ControlPanel
-        this.controlPanel = new ControlPanel(engine, vehicleManager, trafficLightManager, infraMgr);
-        
-        // Initialize Dashboard
-        this.dashboard = new DashBoard(statsCollector, infraMgr);
-
         sidebar.getItems().addAll(controlPanel, dashboard);
-        sidebar.setDividerPositions(0.5); // Split equally
-        
+        sidebar.setDividerPositions(0.5); 
         return sidebar;
     }
 
     /**
-     * Creates and configures the 3D SubScene for the map.
-     * Sets up mouse event handlers for navigation.
-     * * @return Configured SubScene.
+     * Creates either the 3D SubScene or the 2D Canvas based on user choice.
      */
-    private SubScene createMapSubScene() {
-        SubScene subScene = new SubScene(mapView3D.getRoot(), 800, 800, true, SceneAntialiasing.BALANCED);
-        subScene.setPickOnBounds(true);
-        subScene.setCamera(mapView3D.getCamera());
-        
-        setupMouseHandlers(subScene);
-        
-        return subScene;
+    private Node createMapNode(BorderPane root, SplitPane sidebar) {
+        if (is3DMode) {
+            // --- 3D MODE ---
+            this.mapView3D = new MapView3D(engine, vehicleManager, controlPanel);
+            SubScene subScene = new SubScene(mapView3D.getRoot(), 800, 800, true, SceneAntialiasing.BALANCED);
+            subScene.setPickOnBounds(true);
+            subScene.setCamera(mapView3D.getCamera());
+            
+            // Setup interactions
+            setup3DMouseHandlers(subScene);
+            
+            // Wrap in StackPane for layout binding
+            StackPane container = new StackPane(subScene);
+            subScene.widthProperty().bind(container.widthProperty());
+            subScene.heightProperty().bind(container.heightProperty());
+            return container;
+            
+        } else {
+            // --- 2D MODE ---
+            this.mapView2D = new MapView(engine, vehicleManager);
+            
+            // Link 2D selection to ControlPanel
+            this.mapView2D.setOnVehicleSelected(id -> {
+                if (controlPanel != null) controlPanel.selectVehicle(id);
+            });
+            
+            return mapView2D; // MapView extends Canvas or Pane usually
+        }
     }
 
-    /**
-     * Sets up mouse interaction handlers for the map (Pan, Rotate, Zoom).
-     * * @param subScene The SubScene to attach handlers to.
-     */
-    private void setupMouseHandlers(SubScene subScene) {
+    private void setup3DMouseHandlers(SubScene subScene) {
         subScene.setOnMousePressed(event -> {
             mousePosX = event.getSceneX();
             mousePosY = event.getSceneY();
@@ -185,16 +216,12 @@ public class GuiManager extends Application implements IMapObserver {
             double dy = event.getSceneY() - mousePosY;
 
             if (event.isPrimaryButtonDown()) {
-                // Rotate
                 mapView3D.updateRotation(dx * 0.2, -dy * 0.2);
             } else if (event.isShiftDown() && event.isSecondaryButtonDown()) {
-                // Pan / Move Horizontally
                 mapView3D.moveHorizontale(dx, -dy);
             } else if (!event.isShiftDown() && event.isSecondaryButtonDown()) {
-                // Move Vertically / Tilt
                 mapView3D.moveRoadsVertical(dy);
             }
-
             mousePosX = event.getSceneX();
             mousePosY = event.getSceneY();
         });
@@ -205,36 +232,30 @@ public class GuiManager extends Application implements IMapObserver {
         });
     }
 
-    /**
-     * Configures the application close behavior.
-     * Ensures the simulation engine stops properly.
-     * * @param stage The primary stage.
-     */
     private void setupCloseHandler(Stage stage) {
         stage.setOnCloseRequest(e -> {
             LOGGER.info("Application closing...");
-            if (engine != null) {
-                engine.stop();
-            }
+            if (engine != null) engine.stop();
             Platform.exit();
             System.exit(0);
         });
     }
 
-    /**
-     * Callback method triggered by the SimulationEngine to update the UI.
-     * Executes UI updates on the JavaFX Application Thread.
-     */
     @Override
     public void refresh() {
         Platform.runLater(() -> {
             try {
+                // Update Sidebar
                 if (controlPanel != null) controlPanel.updateRealTimeData();
                 if (dashboard != null) dashboard.update();
-                if (mapView3D != null) {
+                
+                // Update Map based on active mode
+                if (is3DMode && mapView3D != null) {
                     mapView3D.renderRoads(); 
                     mapView3D.updateVehicles(vehicleManager); 
                     mapView3D.updateTrafficLights();
+                } else if (!is3DMode && mapView2D != null) {
+                    mapView2D.render(); // Ensure MapView has a render() method
                 }
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error during UI refresh", e);

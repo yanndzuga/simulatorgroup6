@@ -2,7 +2,6 @@ package de.frauas.group6.traffic.simulator.core;
 
 import java.awt.geom.Point2D;
 import java.util.List;
-import de.frauas.group6.traffic.simulator.view.GuiManager;
 import de.frauas.group6.traffic.simulator.view.IMapObserver;
 
 

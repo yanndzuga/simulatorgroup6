@@ -362,9 +362,9 @@ public class ControlPanel extends ScrollPane {
             lblTlState.setText("P:" + phase + " (" + state + ")");
             lblPhaseTime.setText(String.format("%.1fs", timeLeft));
             
-            if(phase == 0 || phase == 4 || state.toLowerCase().contains("g")) 
+            if(phase == 0 || phase == 4  ) 
                 indicatorLight.setFill(Color.LIME);
-            else if(phase == 2 || state.toLowerCase().contains("r")) 
+            else if(phase == 2 || phase == 1) 
                 indicatorLight.setFill(Color.RED);
             else 
                 indicatorLight.setFill(Color.ORANGE);
