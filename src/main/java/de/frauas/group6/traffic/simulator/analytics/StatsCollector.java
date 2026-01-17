@@ -65,30 +65,13 @@ public class StatsCollector implements IStatsCollector {
 	private final Map<String, Integer> congestionList = new HashMap<>();
 	private final Map<String, Integer> currentStepCongestion = new HashMap<>();
 	
-//	private void initRoutesFromInfrastructure(String resourceName) {
-//		// Routes, Edges
-//	   Map<String, List<String>> routes = infrastructureManager.loadRoutes(resourceName);
-//	   routeEdges.putAll(routes);
-//	}
+	private void initRoutesFromInfrastructure(String resourceName) {
+		// Routes, Edges
+	   Map<String, List<String>> routes = infrastructureManager.loadRoutes(resourceName);
+       routeEdges.putAll(routes);
+	}
 
-	private void initRoutesFromXml(String filePath) { 
-		LOGGER.info("Loading routes from XML: " + filePath);
-		try { // Create a File object pointing to the XML file 
-			File xmlFile = new File(filePath); // Create a factory for building DOM parsers 
-			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance(); // Create a DocumentBuilder from the factory 
-			DocumentBuilder builder = factory.newDocumentBuilder(); // Parse the XML file into a DOM Document 
-			org.w3c.dom.Document doc = builder.parse(xmlFile); // Get a List of all <route> elements in the XML 
-			NodeList routeNodes = doc.getElementsByTagName("route"); // Loop over each <route> element 
-			for (int i = 0; i < routeNodes.getLength(); i++) { // Cast the current node to an Element 
-				Element routeElement = (Element) routeNodes.item(i); // Read the value of the "id" attribute 
-				String routeId = routeElement.getAttribute("id"); // Read the value of the "edges" attribute 
-				String edgesAttr = routeElement.getAttribute("edges"); 
-				List<String> edges = List.of(edgesAttr.trim().split("\\s+")); 
-				routeEdges.put(routeId, edges); }
-			LOGGER.info("Loaded " + routeEdges.size() + " routes");
-			} catch (Exception e) { throw new AnalyticsException("Failed to load routes from XML file" + filePath, e);
-			}
-		}
+	
 	private void initAvgTravelTimeRouteList() {
 	    for (String routeId : routeEdges.keySet()) {
 	        TravelTimeRouteList.put(routeId, new ArrayList<>());
@@ -101,8 +84,7 @@ public class StatsCollector implements IStatsCollector {
 		this.vehicleManager = vehicleManager;
 	    this.infrastructureManager = infrastructureManager;
 	    this.simulationEngine = simulationEngine;
-	   // initRoutesFromInfrastructure("minimal.rou.xml");
-	    initRoutesFromXml("src/main/resources/minimal.rou.xml");
+	    initRoutesFromInfrastructure("minimal.rou.xml");
 	    initAvgTravelTimeRouteList();  
 	    LOGGER.info("StatsCollector initialized with " + routeEdges.size() + " routes");
 	}
