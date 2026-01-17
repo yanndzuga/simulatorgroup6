@@ -18,6 +18,7 @@ import javafx.scene.SubScene;
 import javafx.scene.control.SplitPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 /**
@@ -114,6 +115,7 @@ public class GuiManager extends Application implements IMapObserver {
 
             // 3. Configure Scene and Stage
             Scene scene = new Scene(root, 1280, 800);
+            scene.setFill(Color.web("#87CEEB"));
             primaryStage.setTitle("Traffic Simulator - Group 6");
             primaryStage.setScene(scene);
             
@@ -232,9 +234,10 @@ public class GuiManager extends Application implements IMapObserver {
                 if (controlPanel != null) controlPanel.updateRealTimeData();
                 if (dashboard != null) dashboard.update();
                 if (mapView3D != null) {
-                    mapView3D.renderRoads(); 
+               
                     mapView3D.updateVehicles(vehicleManager); 
                     mapView3D.updateTrafficLights();
+                   
                 }
             } catch (Exception e) {
                 LOGGER.log(Level.WARNING, "Error during UI refresh", e);

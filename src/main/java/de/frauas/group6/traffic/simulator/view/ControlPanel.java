@@ -273,7 +273,7 @@ public class ControlPanel extends ScrollPane {
             }
         });
     }
-
+  
     private void setupVehicleHandlers(Button create, Button mod, Button del, Button select) {
         create.setOnAction(e -> {
             if (vehicleManager != null) {
@@ -292,16 +292,26 @@ public class ControlPanel extends ScrollPane {
         });
 
         del.setOnAction(e -> {
-            if (vehicleManager != null) {
-                try {
-                    vehicleManager.deleteVehicle(cbRoute.getValue(), cbColor.getValue(), sliderSpeed.getValue(), spinnerCount.getValue());
-                    txtSelectedId.clear();
-                    LOGGER.info("Delete vehicle requested.");
-                } catch(Exception ex) {
-                    LOGGER.log(Level.SEVERE, "Failed to delete vehicle", ex);
-                }
-            }
-        });
+
+        	if (vehicleManager != null) {
+
+        	try {
+
+        	vehicleManager.deleteVehicle(cbRoute.getValue(), cbColor.getValue(), sliderSpeed.getValue(), spinnerCount.getValue());
+
+        	txtSelectedId.clear();
+
+        	LOGGER.info("Delete vehicle requested.");
+
+        	} catch(Exception ex) {
+
+        	LOGGER.log(Level.SEVERE, "Failed to delete vehicle", ex);
+
+        	}
+
+        	}
+
+        	});
 
         select.setOnAction(e -> {
             if (vehicleManager != null) {

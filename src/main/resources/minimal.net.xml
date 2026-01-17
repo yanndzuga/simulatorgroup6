@@ -109,9 +109,9 @@
     </tlLogic>
     <tlLogic id="J57" type="static" programID="0" offset="0">
         <phase duration="34" state="GGrrGGrr"/>
-        <phase duration="11" state="Gyrryyrr"/>
-        <phase duration="34" state="GrGGrrGG"/>
-        <phase duration="11" state="Gryyrryy"/>
+        <phase duration="11" state="yyrryyrr"/>
+        <phase duration="34" state="rrGGrrGG"/>
+        <phase duration="11" state="rryyrryy"/>
     </tlLogic>
 
     <junction id="J54" type="dead_end" x="200.00" y="100.00" incLanes="-E45_0 -E45_1" intLanes="" shape="200.00,100.00 206.40,100.00 200.00,100.00"/>

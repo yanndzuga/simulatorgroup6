@@ -88,7 +88,7 @@ public class StatsCollector implements IStatsCollector {
 		this.vehicleManager = vehicleManager;
 	    this.infrastructureManager = infrastructureManager;
 	    this.simulationEngine = simulationEngine;
-	    initRoutesFromInfrastructure("D:\\simulatorgroup6\\src\\main\\resources\\minimal.rou.xml");
+	    initRoutesFromInfrastructure("C:\\Users\\ss\\Documents\\simulatorgroup6\\src\\main\\resources\\minimal.rou.xml");
 	    initAvgTravelTimeRouteList();       
 	}
 	
