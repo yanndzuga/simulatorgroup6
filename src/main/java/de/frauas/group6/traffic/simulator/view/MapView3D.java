@@ -16,7 +16,6 @@ import javafx.scene.AmbientLight;
 import javafx.scene.Group;
 import javafx.scene.PerspectiveCamera;
 import javafx.scene.PointLight;
-import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
@@ -113,7 +112,7 @@ public class MapView3D {
         List<String> EdgeIds = engine.getEdgeIdList();
         
         // Asphalt Texture Mapping
-        PhongMaterial asphaltMaterial = new PhongMaterial();
+       /* PhongMaterial asphaltMaterial = new PhongMaterial();
         try {
             Image asphaltImg = new Image(getClass().getResourceAsStream("/asphalt.jpg"));
             asphaltMaterial.setDiffuseMap(asphaltImg);
@@ -121,7 +120,12 @@ public class MapView3D {
             asphaltMaterial.setDiffuseColor(Color.web("#333333"));
         } catch (Exception e) {
             asphaltMaterial.setDiffuseColor(Color.DARKGRAY);
-        }
+        }*/
+        
+        PhongMaterial asphaltMaterial = new PhongMaterial();
+        asphaltMaterial.setDiffuseColor(Color.web("#1A1A1A")); 
+        asphaltMaterial.setSpecularColor(Color.BLACK);
+        
 
         PhongMaterial lineMat = new PhongMaterial(Color.WHITE);
 
@@ -216,15 +220,11 @@ public class MapView3D {
      */
     private void drawJunctions() {
         List<String> junctionIds = engine.getJunctionIdList();
+        
         PhongMaterial junctionMaterial = new PhongMaterial();
-        try {
-            Image asphaltImg = new Image(getClass().getResourceAsStream("/asphalt.jpg"));
-            junctionMaterial.setDiffuseMap(asphaltImg);
-            junctionMaterial.setSpecularColor(Color.BLACK); 
-            junctionMaterial.setDiffuseColor(Color.web("#333333"));
-        } catch (Exception e) {
-            junctionMaterial.setDiffuseColor(Color.DARKGRAY);
-        }
+        junctionMaterial.setDiffuseColor(Color.web("#1A1A1A")); 
+        junctionMaterial.setSpecularColor(Color.BLACK);
+        
 
         for (String jId : junctionIds) {
             if (!(jId.equals("J55") || jId.equals("J57"))) continue;

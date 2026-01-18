@@ -297,7 +297,7 @@ public class ControlPanel extends ScrollPane {
 
         	try {
 
-        	vehicleManager.deleteVehicle(cbRoute.getValue(), cbColor.getValue(), sliderSpeed.getValue(), spinnerCount.getValue());
+        	vehicleManager.deleteVehicle(cbRoute.getValue(), cbColor.getValue(), spinnerCount.getValue());
 
         	txtSelectedId.clear();
 
@@ -315,7 +315,7 @@ public class ControlPanel extends ScrollPane {
 
         select.setOnAction(e -> {
             if (vehicleManager != null) {
-                vehicleManager.SelectVehicle(cbColor.getValue(), sliderSpeed.getValue());
+                vehicleManager.SelectVehicle(cbColor.getValue());
                 if (onRefreshRequest != null) onRefreshRequest.run();
                 LOGGER.info("Filter applied: " + cbColor.getValue() + " @ " + sliderSpeed.getValue() + "m/s");
             }

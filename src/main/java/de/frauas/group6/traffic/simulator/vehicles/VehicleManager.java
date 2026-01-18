@@ -159,18 +159,18 @@ public class VehicleManager implements IVehicleManager {
       @throws DeleteVehicleException if the required number of vehicles cannot be found or deletion fails.
       ---------------------------------------------------------------------------------------------------------
      */
-    public void deleteVehicle(String requestedEdgeId, String requestedColor, double requestedSpeed, int requestnumber) {
+    public void deleteVehicle(String requestedEdgeId, String requestedColor, int requestnumber) {
         int count = 0;
         List<String> validVehicleIds = new ArrayList<>();
         final double SPEED_TOLERANCE = 0.001;
 
         //-- Identification phase: find vehicles matching the user request--
         for (IVehicle vehicle : Vehicles.values()) {
-            boolean speedMatches = Math.abs(vehicle.getSpeed() - requestedSpeed) < SPEED_TOLERANCE;
+           
 
             if (vehicle.getRouteId().equals(requestedEdgeId) &&
-                vehicle.getColor().equals(requestedColor) &&
-                speedMatches) {
+                vehicle.getColor().equals(requestedColor)
+                ) {
                 count++;
                 validVehicleIds.add(vehicle.getId());
             }
@@ -259,13 +259,13 @@ public class VehicleManager implements IVehicleManager {
       This is used to highlight specific vehicle groups in the 3D view.
       ---------------------------------------------------------------------
      */
-    public void SelectVehicle(String Currentcolor, double Currentspeed) { 
-        final double SPEED_TOLERANCE = 0.1;
+    public void SelectVehicle(String Currentcolor) { 
+    	
         synchronized (Vehicles) {
             if(!(Currentcolor.equals("All"))) {
                 for(IVehicle V : Vehicles.values()) {
                     // Filter by specific color and speed match
-                    if(V.getColor().equalsIgnoreCase(Currentcolor) && Math.abs((V.getSpeed()) - Currentspeed) <= SPEED_TOLERANCE) {
+                    if(V.getColor().equalsIgnoreCase(Currentcolor)) {
                         V.setIsvisible(true);
                     } else { 
                         V.setIsvisible(false); 
@@ -273,12 +273,8 @@ public class VehicleManager implements IVehicleManager {
                 }
             } else {
                 // --Filter by speed match only ("All" colors)--
-                for(IVehicle V : Vehicles.values()) {
-                    if(Math.abs((V.getSpeed()) - Currentspeed) <= SPEED_TOLERANCE) {
-                        V.setIsvisible(true);
-                    } else {
-                        V.setIsvisible(false);
-                    }
+                for(IVehicle V : Vehicles.values()) {           
+                        V.setIsvisible(true);               
                 }
             }
         }
