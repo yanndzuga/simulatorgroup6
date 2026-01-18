@@ -59,7 +59,7 @@ public class GuiManager extends Application implements IMapObserver {
     private DashBoard dashboard; 
     
     // Map Components (Only one will be active)
-    private MapView3D mapView3D; 
+    private MapView3D1 mapView3D; 
     private MapView mapView2D;
     private boolean is3DMode = true; // Default
     
@@ -179,7 +179,7 @@ public class GuiManager extends Application implements IMapObserver {
     private Node createMapNode(BorderPane root, SplitPane sidebar) {
         if (is3DMode) {
             // --- 3D MODE ---
-            this.mapView3D = new MapView3D(engine, vehicleManager, controlPanel);
+            this.mapView3D = new MapView3D1(engine, vehicleManager, controlPanel);
             SubScene subScene = new SubScene(mapView3D.getRoot(), 800, 800, true, SceneAntialiasing.BALANCED);
             subScene.setPickOnBounds(true);
             subScene.setCamera(mapView3D.getCamera());

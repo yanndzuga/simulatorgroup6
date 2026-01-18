@@ -28,7 +28,7 @@ import javafx.scene.transform.Rotate;
   It manages the rendering of roads, junctions, vehicles, traffic lights, and environment.
   --------------------------------------------------------------------------------------------
  */
-public class MapView3D {
+public class MapView3D1 {
 	
     //-- Scene Graph Groups--
     private Group world;
@@ -62,7 +62,7 @@ public class MapView3D {
       Constructor initializes the 3D world, camera, lighting, and static infrastructure.
       -----------------------------------------------------------------------------------
      */
-    public MapView3D(ISimulationEngine engine, IVehicleManager manager, ControlPanel controlpanel) {
+    public MapView3D1(ISimulationEngine engine, IVehicleManager manager, ControlPanel controlpanel) {
         this.controlpanel = controlpanel;
         this.engine = engine;
         this.Vehicleboxes = new HashMap<String, Box>();
