@@ -85,8 +85,7 @@ public class StatsCollector implements IStatsCollector {
 	    this.infrastructureManager = infrastructureManager;
 	    this.simulationEngine = simulationEngine;
 	    initRoutesFromInfrastructure("minimal.rou.xml");
-	    initAvgTravelTimeRouteList();  
-	    LOGGER.info("StatsCollector initialized with " + routeEdges.size() + " routes");
+	    initAvgTravelTimeRouteList();       
 	}
 	
 	private void storeVehicleState (Collection<IVehicle> vehicles) {
