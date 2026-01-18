@@ -13,47 +13,32 @@ import java.awt.geom.Point2D;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ArrayList;
 
-/**
- * MapView class responsible for rendering the simulation environment.
- * It displays the infrastructure (roads, junctions), vehicles, and traffic lights.
- * Provides zoom and pan functionality for better navigation.
- */
 public class MapView extends Pane {
 
     private Canvas canvas;
     private ISimulationEngine engine;
     private IVehicleManager vehicleManager;
 
-    // View parameters
-    private double scale = 3.0; // Default zoom level set higher to see details
+    private double scale = 3.0; 
     private double offsetX = 100;
     private double offsetY = 500; 
     private double lastMouseX, lastMouseY;
 
-    // Callback for vehicle selection
     private Consumer<String> onVehicleSelected;
 
-    /**
-     * Constructor for MapView.
-     * Initializes the canvas and sets up mouse event handlers.
-     * * @param engine The simulation engine interface.
-     * @param vm The vehicle manager interface.
-     */
     public MapView(ISimulationEngine engine, IVehicleManager vm) {
         this.engine = engine;
         this.vehicleManager = vm;
-        
         this.canvas = new Canvas();
         getChildren().add(canvas);
         
-        // Dynamically bind canvas size to the pane size
         canvas.widthProperty().bind(widthProperty());
         canvas.heightProperty().bind(heightProperty());
 
-        // --- MOUSE HANDLING (Zoom & Pan) ---
-        
-        // Handle zooming with scroll wheel
         this.setOnScroll((ScrollEvent event) -> {
             double zoomFactor = 1.1;
             if (event.getDeltaY() < 0) zoomFactor = 1 / zoomFactor;
@@ -61,7 +46,6 @@ public class MapView extends Pane {
             render(); 
         });
 
-        // Handle vehicle selection on left click
         this.setOnMousePressed(e -> {
             lastMouseX = e.getX();
             lastMouseY = e.getY();
@@ -70,7 +54,6 @@ public class MapView extends Pane {
             }
         });
 
-        // Handle panning with right or middle mouse button
         this.setOnMouseDragged(e -> {
             if (e.getButton() == MouseButton.SECONDARY || e.getButton() == MouseButton.MIDDLE) {
                 double dx = e.getX() - lastMouseX;
@@ -83,27 +66,16 @@ public class MapView extends Pane {
             }
         });
         
-        // Set dark background color for better contrast with lights
         setStyle("-fx-background-color: #1e1e1e;"); 
     }
-    
-    /**
-     * Sets the callback to be triggered when a vehicle is selected.
-     * @param callback Consumer that accepts the vehicle ID.
-     */
+
     public void setOnVehicleSelected(Consumer<String> callback) {
         this.onVehicleSelected = callback;
     }
 
-    /**
-     * Handles the selection logic based on screen coordinates.
-     * Converts screen coordinates to simulation coordinates and queries the engine.
-     */
     private void handleSelection(double screenX, double screenY) {
         double simX = (screenX - offsetX) / scale;
         double simY = (offsetY - screenY) / scale; 
-        
-        // Use a 10-meter tolerance for easier clicking
         String id = engine.getVehicleIdAtPosition(simX, simY, 10.0);
         if (id != null && onVehicleSelected != null) {
             onVehicleSelected.accept(id);
@@ -111,264 +83,287 @@ public class MapView extends Pane {
     }
 
     // --- MAIN RENDER LOOP ---
-    
-    /**
-     * Renders the entire scene: background, infrastructure, traffic lights, and vehicles.
-     */
+
     public void render() {
         if (getWidth() <= 0 || getHeight() <= 0) return;
-
         GraphicsContext gc = canvas.getGraphicsContext2D();
-        double w = getWidth();
-        double h = getHeight();
-
-        // 1. Background (Ground)
         gc.setFill(Color.web("#222222")); 
-        gc.fillRect(0, 0, w, h);
+        gc.fillRect(0, 0, getWidth(), getHeight());
 
         if (engine == null) return;
 
-        // 2. Infrastructure (Roads & Junctions)
         drawInfrastructure(gc);
-
-        // 3. Traffic Lights (Drawn above roads but below vehicles for visibility )
-        // Currently drawing them before vehicles.
         drawDetailedTrafficLights(gc);
 
-        // 4. Vehicles
         if (vehicleManager != null) {
-            Collection<IVehicle> vehicles = vehicleManager.getAllVehicles();
-            for (IVehicle v : vehicles) {
-            	if (v.isIsVisible()) drawVehicle(gc, v);
+            for (IVehicle v : vehicleManager.getAllVehicles()) {
+                if (v.isIsVisible()) drawVehicle(gc, v);
             }
         }
     }
-    
-    /**
-     * Draws the road network including edges and junctions.
-     */
+
     private void drawInfrastructure(GraphicsContext gc) {
-        // Road style: Dark asphalt with borders
         gc.setLineCap(javafx.scene.shape.StrokeLineCap.ROUND);
-        
         List<String> edges = engine.getEdgeIdList();
-        
-        // Draw road borders (Sidewalks)
-        gc.setLineWidth(7 * scale);
-        gc.setStroke(Color.web("#444444"));
+        double baseLaneWidth = 3.5; 
+
+        // 1. Road Borders
         for (String edgeId : edges) {
+            int laneCount = engine.getLaneList(edgeId).size();
+            gc.setLineWidth((laneCount * baseLaneWidth + 1.5) * scale);
+            gc.setStroke(Color.web("#444444"));
             drawPolyline(gc, engine.getEdgeShape(edgeId));
         }
 
-        // Draw Asphalt
-        gc.setLineWidth(5 * scale);
-        gc.setStroke(Color.web("#333333"));
+        // 2. Asphalt
         for (String edgeId : edges) {
+            int laneCount = engine.getLaneList(edgeId).size();
+            gc.setLineWidth((laneCount * baseLaneWidth) * scale);
+            gc.setStroke(Color.web("#333333"));
             drawPolyline(gc, engine.getEdgeShape(edgeId));
         }
-        
-        // Draw Junctions
+
+        // 3. Junctions
         gc.setFill(Color.web("#333333"));
         for (String jId : engine.getJunctionIdList()) {
             List<Point2D> shape = engine.getJunctionShape(jId);
-            if (shape != null && shape.size() > 2) {
-                fillPolygon(gc, shape);
-            }
+            if (shape != null && shape.size() > 2) fillPolygon(gc, shape);
         }
 
-        // Draw central lane markings (dashed lines)
+        // 4. Lane Markings
         gc.setStroke(Color.web("#888888"));
-        gc.setLineWidth(0.5 * scale); 
-        gc.setLineDashes(3 * scale); // Dash pattern
+        gc.setLineWidth(0.3 * scale); 
         for (String edgeId : edges) {
-            drawPolyline(gc, engine.getEdgeShape(edgeId));
+            int laneCount = engine.getLaneList(edgeId).size();
+            if (laneCount > 1) {
+                for (int i = 1; i < laneCount; i++) {
+                    double offset = (i - laneCount / 2.0) * baseLaneWidth;
+                    gc.setLineDashes(3 * scale);
+                    drawOffsetPolyline(gc, engine.getEdgeShape(edgeId), offset);
+                }
+            }
         }
-        gc.setLineDashes(null); // Reset dashes
+        gc.setLineDashes(null);
     }
-    
-    /**
-     * DRAWS "SEMAPHORE" STYLE TRAFFIC LIGHTS (Box with 3 lights)
-     * Iterates through controlled lanes to place lights correctly.
-     */
-    private void drawDetailedTrafficLights(GraphicsContext gc) {
-        List<String> tlIds = engine.getTrafficLightIdList();
-        if (tlIds == null) return;
 
-        for (String tlId : tlIds) {
-            // Get global state string (e.g., "GGrrGGrr")
-            String state = engine.getTrafficLightState(tlId);
-            // Get controlled lanes (e.g., ["E1_0", "E1_1", "E2_0"...])
-            List<String> lanes = engine.getControlledLanes(tlId);
+   /**
+ * FIXED Vehicle drawing: Uses engine.getVehicleAngle() since IVehicle doesn't have it.
+ */
+/**
+ * FIXED Vehicle drawing: Calculates Lane Offset to prevent "Center Line Driving".
+ */
+private void drawVehicle(GraphicsContext gc, IVehicle v) {
+    Point2D pos = v.getPosition();
+    if(pos == null) return;
+
+    double x = tx(pos.getX());
+    double y = ty(pos.getY());
+    
+    // 1. Get Vehicle Heading
+    double angle = engine.getVehicleAngle(v.getId());
+
+    // 2. Correct Lane Offset Logic
+    String edgeId = v.getEdgeId();
+    if (edgeId != null && !edgeId.startsWith(":")) { // Skip offset logic for internal junction edges
+        try {
+            int laneIndex = v.getEdgeLane(); 
+            int totalLanes = engine.getLaneList(edgeId).size();
+            double baseLaneWidth = 3.5; 
+
+            // Offset Formula: Matches the Traffic Light Fix
+            // ((Center) - Index) * Width
+            double laneOffsetSim = ((totalLanes - 1) / 2.0 - laneIndex) * baseLaneWidth;
+            double pixelOffset = laneOffsetSim * scale;
+
+            // 3. Robust "Right Vector" Calculation
+            // Instead of using dirX/dirY intermediate steps, we calculate the Right Vector directly.
+            // Angle 0 (North) -> Right is East (+X)
+            // Angle 90 (East) -> Right is South (+Y)
+            // Formula: (Cos(a), Sin(a))
             
-            if (lanes == null || lanes.isEmpty()) {
-                // Fallback: Draw simple light at center if no lane details available
-                drawSimpleTrafficLight(gc, tlId);
-                continue;
-            }
+            double angleRad = Math.toRadians(angle);
+            double rightX = Math.cos(angleRad);
+            double rightY = Math.sin(angleRad);
 
-            // Draw a light at the end of each incoming controlled lane
-            for (int i = 0; i < lanes.size(); i++) {
-                String laneId = lanes.get(i);
+            // Apply Shift
+            x += rightX * pixelOffset;
+            y += rightY * pixelOffset;
+
+        } catch (Exception e) {
+            // Fallback
+        }
+    }
+
+    // 3. Size & Rotation
+    double carWidth = 2.0 * scale; 
+    double carLength = 4.0 * scale;
+
+    gc.save();
+    
+    // Move to the corrected position
+    gc.translate(x, y);
+    // Rotate nose to face forward
+    gc.rotate(angle - 90); 
+
+    // Color Logic
+    Color c = Color.web("#ff4444"); 
+    String colorStr = v.getColor();
+    if(colorStr != null) {
+        if (colorStr.equalsIgnoreCase("Green")) c = Color.web("#44ff44");
+        else if (colorStr.equalsIgnoreCase("Yellow")) c = Color.web("#ffff44");
+        else if (colorStr.equalsIgnoreCase("Red")) c = Color.web("#ff4444");
+    }
+    
+    gc.setFill(c);
+    
+    // Anchor at Front Bumper (0,0) so car stays behind stop lines
+    gc.fillRoundRect(-carLength, -carWidth/2, carLength, carWidth, 1.5 * scale, 1.5 * scale);
+    
+    // Headlights
+    gc.setFill(Color.WHITE);
+    gc.fillOval(-1 * scale, -carWidth/2 + (0.2 * scale), 0.8 * scale, 0.8 * scale);
+    gc.fillOval(-1 * scale, carWidth/2 - (1 * scale), 0.8 * scale, 0.8 * scale);
+
+    gc.restore();
+}
+private void drawDetailedTrafficLights(GraphicsContext gc) {
+    List<String> tlIds = engine.getTrafficLightIdList();
+    if (tlIds == null) return;
+
+    for (String tlId : tlIds) {
+        String state = engine.getTrafficLightState(tlId);
+        List<String> controlledLanes = engine.getControlledLanes(tlId);
+        if (controlledLanes == null || controlledLanes.isEmpty()) continue;
+
+        Map<String, List<Integer>> edgeToIndices = new HashMap<>();
+        for (int i = 0; i < controlledLanes.size(); i++) {
+            String laneId = controlledLanes.get(i);
+            String edgeId = laneId.contains("_") ? laneId.split("_")[0] : laneId;
+            edgeToIndices.computeIfAbsent(edgeId, k -> new ArrayList<>()).add(i);
+        }
+
+        for (Map.Entry<String, List<Integer>> entry : edgeToIndices.entrySet()) {
+            String edgeId = entry.getKey();
+            List<Integer> indices = entry.getValue();
+            
+            List<Point2D> shape = engine.getEdgeShape(edgeId);
+            if (shape == null || shape.size() < 2) continue;
+
+            Point2D pEnd = shape.get(shape.size() - 1);
+            Point2D pPrev = shape.get(shape.size() - 2);
+
+            double dx = pEnd.getX() - pPrev.getX();
+            double dy = pEnd.getY() - pPrev.getY();
+            double length = Math.sqrt(dx * dx + dy * dy);
+            
+            double rx = -dy / length; 
+            double ry = dx / length;
+
+            int totalLanes = engine.getLaneList(edgeId).size();
+            double laneWidth = 3.5; 
+
+            for (int i : indices) {
+                String laneIdStr = controlledLanes.get(i);
+                int realLaneIndex = 0;
+                try { realLaneIndex = Integer.parseInt(laneIdStr.split("_")[1]); } catch (Exception e) {}
+
+                char signalChar = (state != null && i < state.length()) ? state.charAt(i) : 'r';
+
+                // Offset Logic (Keep the inverted logic that worked)
+                double offset = (realLaneIndex - (totalLanes - 1) / 2.0) * laneWidth;
                 
-                // Determine color for THIS specific lane
-                char signalChar = 'r';
-                if (state != null && i < state.length()) {
-                    signalChar = state.charAt(i);
-                } else if (state != null && state.length() > 0) {
-                    signalChar = state.charAt(0); // Fallback
-                }
+                // --- THE FIX: PUSH FORWARD ---
+                // We ADD direction to push it slightly into the intersection/sidewalk
+                // instead of pulling it back under the car.
+                double pushForward = 1.0; 
+                double posX = pEnd.getX() + (dx/length * pushForward) + (rx * offset);
+                double posY = pEnd.getY() + (dy/length * pushForward) + (ry * offset);
 
-                // Retrieve lane/edge shape to determine position and angle
-                String edgeId = laneId; 
-                // If ID contains underscore (e.g., "E45_0"), it's a lane, get parent edge "E45"
-                if (laneId.contains("_")) {
-                    edgeId = laneId.substring(0, laneId.lastIndexOf('_'));
-                }
-                
-                List<Point2D> shape = engine.getEdgeShape(edgeId);
-                if (shape == null || shape.size() < 2) continue;
-
-                // Position: The last point of the road (the stop line)
-                Point2D pEnd = shape.get(shape.size() - 1);
-                Point2D pPrev = shape.get(shape.size() - 2);
-
-                // Calculate road angle to orient the traffic light
-                double dx = pEnd.getX() - pPrev.getX();
-                double dy = pEnd.getY() - pPrev.getY();
-                double angleRad = Math.atan2(dy, dx);
-                double angleDeg = Math.toDegrees(angleRad);
-
-                // Draw the semaphore box
-                drawSemaphore(gc, pEnd.getX(), pEnd.getY(), angleDeg, signalChar);
+                drawLaneSignal(gc, posX, posY, getSignalColor(signalChar));
             }
         }
     }
+}
+
+/**
+ * Reverted to Circular Signal
+ */
+private void drawLaneSignal(GraphicsContext gc, double simX, double simY, Color color) {
+    double x = tx(simX);
+    double y = ty(simY);
+    double size = 3.5 * scale; // Good visibility size
+
+    gc.setFill(color);
+    // Draw Circle
+    gc.fillOval(x - size/2, y - size/2, size, size);
     
-    /**
-     * Draws a realistic-style traffic light box.
-     */
-    private void drawSemaphore(GraphicsContext gc, double simX, double simY, double angleDeg, char stateChar) {
-        gc.save();
-        
-        double x = tx(simX);
-        double y = ty(simY);
-        
-        // 1. Position at the end of the road
-        gc.translate(x, y);
-        
-        // 2. Rotate to face the road (perpendicular to road axis)
-        // Adjust rotation as JavaFX coordinates might invert Y
-        gc.rotate(-angleDeg); 
-        
-        double boxW = 4 * scale;
-        double boxH = 10 * scale;
-        
-        // Offset to place the light on the right sidewalk
-        double roadOffset = 6 * scale; 
-        
-        // Draw Black Box
-        gc.setFill(Color.BLACK);
-        gc.setStroke(Color.DARKGRAY);
-        gc.setLineWidth(0.5);
-        
-        // Local position after rotation: shifted right (local Y+) and slightly back (local X-)
-        gc.fillRect(0, roadOffset, boxW, boxH);
-        gc.strokeRect(0, roadOffset, boxW, boxH);
-        
-        // --- THE 3 LIGHTS ---
-        double r = 1.2 * scale; // Light radius
-        double centerX = boxW / 2;
-        double lightYStart = roadOffset + 2 * scale;
-        double gap = 3 * scale;
-
-        // Default colors (Off state)
-        Color cRed = Color.web("#330000");
-        Color cYellow = Color.web("#333300");
-        Color cGreen = Color.web("#003300");
-
-        // Neon Glow effect
-        Color glow = Color.TRANSPARENT;
-
-        String s = String.valueOf(stateChar).toLowerCase();
-        
-        if (s.equals("r")) {
-            cRed = Color.RED;
-            glow = Color.RED;
-        } else if (s.equals("y")) {
-            cYellow = Color.YELLOW;
-            glow = Color.YELLOW;
-        } else if (s.equals("g")) {
-            cGreen = Color.LIME;
-            glow = Color.LIME;
-        }
-
-        // Draw Red (Top)
-        drawLightBulb(gc, centerX, lightYStart, r, cRed, glow.equals(Color.RED));
-        // Draw Yellow (Middle)
-        drawLightBulb(gc, centerX, lightYStart + gap, r, cYellow, glow.equals(Color.YELLOW));
-        // Draw Green (Bottom)
-        drawLightBulb(gc, centerX, lightYStart + gap*2, r, cGreen, glow.equals(Color.LIME));
-
-        gc.restore();
-    }
+    // Clean Border
+    gc.setStroke(Color.BLACK);
+    gc.setLineWidth(0.6 * scale);
+    gc.strokeOval(x - size/2, y - size/2, size, size);
+}
+/**
+ * Updated to draw a "Stop Bar" rectangle instead of a circle.
+ * Matches SUMO visuals.
+ */
+private void drawLaneSignal(GraphicsContext gc, double simX, double simY, double angleDeg, Color color) {
+    double x = tx(simX);
+    double y = ty(simY);
     
-    /**
-     * Helper to draw a single light bulb with optional glow.
-     */
-    private void drawLightBulb(GraphicsContext gc, double cx, double cy, double radius, Color c, boolean isOn) {
-        gc.setFill(c);
-        gc.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
-        
-        if (isOn) {
-            // Center shine effect
-            gc.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.5));
-            gc.fillOval(cx - radius/2, cy - radius/2, radius, radius);
+    // Bar Dimensions relative to scale
+    double w = 2.8 * scale; // Width (across the lane)
+    double h = 0.6 * scale; // Thickness (along the road)
+
+    gc.save();
+    gc.translate(x, y);
+    gc.rotate(angleDeg - 90); // Rotate perpendicular to road
+    
+    gc.setFill(color);
+    gc.fillRect(-w/2, -h/2, w, h);
+    
+    // Optional: Black outline for contrast
+    gc.setStroke(Color.BLACK);
+    gc.setLineWidth(0.3 * scale);
+    gc.strokeRect(-w/2, -h/2, w, h);
+    
+    gc.restore();
+}
+
+
+    private Color getSignalColor(char s) {
+        switch (Character.toLowerCase(s)) {
+            case 'g': return Color.LIME;
+            case 'y': return Color.YELLOW;
+            case 'r': return Color.RED;
+            default: return Color.DARKGRAY;
         }
     }
-    
-    // Fallback for junctions without lane details
-    private void drawSimpleTrafficLight(GraphicsContext gc, String tlId) {
-        Point2D pos = engine.getTrafficLightPosition(tlId);
-        if (pos == null) return;
-        drawSemaphore(gc, pos.getX(), pos.getY(), 0, engine.getTrafficLightState(tlId).charAt(0));
+
+    private void drawOffsetPolyline(GraphicsContext gc, List<Point2D> points, double offsetSim) {
+        if (points == null || points.size() < 2) return;
+        gc.beginPath();
+        for (int i = 0; i < points.size() - 1; i++) {
+            Point2D p1 = points.get(i);
+            Point2D p2 = points.get(i+1);
+            double dx = p2.getX() - p1.getX();
+            double dy = p2.getY() - p1.getY();
+            double len = Math.sqrt(dx*dx + dy*dy);
+            double ox = (dy / len) * offsetSim;
+            double oy = -(dx / len) * offsetSim;
+            if (i == 0) gc.moveTo(tx(p1.getX() + ox), ty(p1.getY() + oy));
+            gc.lineTo(tx(p2.getX() + ox), ty(p2.getY() + oy));
+        }
+        gc.stroke();
     }
 
-    private void drawVehicle(GraphicsContext gc, IVehicle v) {
-        Point2D pos = v.getPosition();
-        if(pos == null) return;
-        
-        double x = tx(pos.getX());
-        double y = ty(pos.getY());
-        
-        String colorStr = v.getColor();
-        Color c = Color.WHITE; 
-        if(colorStr != null) {
-            switch(colorStr) {
-                case "Rot": case "Red": c = Color.web("#ff4444"); break;
-                case "Green": c = Color.web("#44ff44"); break;
-                case "Yellow": c = Color.web("#ffff44"); break;
-            }
-        }
-        
-        // Simple but clean vehicle drawing
-        gc.setFill(c);
-        double w = 5 * scale;
-        double l = 9 * scale;
-        gc.fillRoundRect(x - w/2, y - l/2, w, l, 2, 2);
-    }
-    
-    // --- UTILITIES ---
-    
     private void drawPolyline(GraphicsContext gc, List<Point2D> points) {
         if (points == null || points.size() < 2) return;
         gc.beginPath();
         gc.moveTo(tx(points.get(0).getX()), ty(points.get(0).getY()));
-        for (int i = 1; i < points.size(); i++) {
-            gc.lineTo(tx(points.get(i).getX()), ty(points.get(i).getY()));
-        }
+        for (int i = 1; i < points.size(); i++) gc.lineTo(tx(points.get(i).getX()), ty(points.get(i).getY()));
         gc.stroke();
     }
-    
+
     private void fillPolygon(GraphicsContext gc, List<Point2D> points) {
         double[] x = new double[points.size()];
         double[] y = new double[points.size()];
@@ -379,7 +374,6 @@ public class MapView extends Pane {
         gc.fillPolygon(x, y, points.size());
     }
 
-    // Coordinate transformers
     private double tx(double val) { return val * scale + offsetX; }
     private double ty(double val) { return offsetY - (val * scale); }
 }
