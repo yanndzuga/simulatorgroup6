@@ -1,10 +1,5 @@
 package de.frauas.group6.traffic.simulator.analytics;
-import java.io.File;
-import java.util.List;
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
+
 // --- Java utility and concurrency classes (collections, maps, Logging) ---
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -73,9 +68,10 @@ public class StatsCollector implements IStatsCollector {
 	private void initRoutesFromInfrastructure(String resourceName) {
 		// Routes, Edges
 	   Map<String, List<String>> routes = infrastructureManager.loadRoutes(resourceName);
-	   routeEdges.putAll(routes);
+       routeEdges.putAll(routes);
 	}
 
+	
 	private void initAvgTravelTimeRouteList() {
 	    for (String routeId : routeEdges.keySet()) {
 	        TravelTimeRouteList.put(routeId, new ArrayList<>());
@@ -88,7 +84,7 @@ public class StatsCollector implements IStatsCollector {
 		this.vehicleManager = vehicleManager;
 	    this.infrastructureManager = infrastructureManager;
 	    this.simulationEngine = simulationEngine;
-	    initRoutesFromInfrastructure("C:\\Users\\ss\\Documents\\simulatorgroup6\\src\\main\\resources\\minimal.rou.xml");
+	    initRoutesFromInfrastructure("minimal.rou.xml");
 	    initAvgTravelTimeRouteList();       
 	}
 	
@@ -149,6 +145,7 @@ public class StatsCollector implements IStatsCollector {
         // 3.Update the stats
         stoppedCountPerEdge.forEach((edgeId, count) -> {
             if (count >= MIN_STOPPED_VEHICLES) {
+            	LOGGER.fine("Congestion detected on edge " + edgeId + " with " + count + " stopped vehicles");
                 //For the Real-Time Dashboard
                 currentStepCongestion.put(edgeId, count);
 
@@ -174,6 +171,7 @@ public class StatsCollector implements IStatsCollector {
 	//===========================
 	
 public void collectData() {
+	LOGGER.fine("Collecting data for simulation step " + simulationEngine.getCurrentSimulationTime());
 	try {
 		// STEP COUNTER
 		// Increase the Simulation step counter (usually starts at 1)
@@ -212,7 +210,7 @@ public void collectData() {
 	    detectCongestion(vehicles);
 	  
 	} catch (Exception e) {
-		LOGGER.warning("StatsCollector: error during collectData() at step " + currentStep + " : " + e.getMessage());
+		throw new AnalyticsException("Error collecting statistics at simulation step" + currentStep, e);
 	}
 	    
 }
@@ -297,8 +295,11 @@ public void collectData() {
  
 //Builds a bar chart image for the average speed per edge.
 //The data is assumed to be already calculated and filtered.
- private Image buildAverageSpeedBarChart(Map<String, Double> data) throws Exception {
-
+ private Image buildAverageSpeedBarChart(Map<String, Double> data) {
+	 if (data == null || data.isEmpty()) {
+		 throw new AnalyticsException("No data available for average speed chart");
+	 }
+	 try {
      // Create dataset for a bar chart (category-based)
      DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 
@@ -337,8 +338,10 @@ public void collectData() {
 
      // Convert PNG bytes to OpenPDF Image and return
      return Image.getInstance(baos.toByteArray());
+	 } catch (Exception e) {
+		 throw new AnalyticsException("Failed to build average speed bar chart", e);
+	 }
  }
-
  
 	//===============================
 	// AVERAGE TRAVEL TIME PER ROUTE
@@ -353,12 +356,17 @@ public void collectData() {
 		IVehicle vehicle = vehicleById.get(vid);
 		if (vehicle == null) continue;
 		String routeId = vehicle.getRouteId();
-		
+		if (routeId == null) {
+			LOGGER.warning("Vehicle '" + vid + "' has no routeId assigned - skipped");
+			continue;
+		}
+		List<Double> list = TravelTimeRouteList.get(routeId);
 	    Double enter = enterTime.get(vid);
 	    Double exit = exitTime.get(vid);
 	    if (enter != null && exit != null && exit > enter) {
 	        double travelTime = (exit - enter);
-	        TravelTimeRouteList.get(routeId).add(travelTime);
+	        if (list == null) { throw new AnalyticsException("Vehicle '" + vid + "' references unknown routeId '" + routeId + "'"); }
+	        list.add(travelTime);
 	    }
 	}
 	// Step 2: Compute average travel time per route
@@ -440,7 +448,11 @@ public void collectData() {
 	 if (forPdf && !anyRoutePrinted) { writer.println("No routes match the selected filters."); }
 }
 	
- private Image buildAverageTravelTimeHorizontalBarChart(Map<String, Double> data) throws Exception {
+ private Image buildAverageTravelTimeHorizontalBarChart(Map<String, Double> data) {
+	 if (data == null || data.isEmpty()) {
+		 throw new AnalyticsException("No data available for average travel time chart");
+	 }
+	 try {
 	 // Create dataset for horizontal bar chart
 	 DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 	 data.forEach((routeId, avgTime) -> {
@@ -491,7 +503,9 @@ public void collectData() {
 	 ImageIO.write(image, "png", baos); 
 	 
 	 return Image.getInstance(baos.toByteArray());
-	    
+	 } catch (Exception e) {
+		 throw new AnalyticsException("Failed to build average travel time per route chart", e);
+	 }
  }
  	//=================
 	// EDGE DENSITY
@@ -505,6 +519,7 @@ public void collectData() {
      for (String edgeId : edgeDensityPerStepList.keySet()) {
     	 List<Double> history = edgeDensityPerStepList.get(edgeId);
     	 if (history == null || history.isEmpty()) {
+    		 LOGGER.fine("No density data available for edge " + edgeId);
     		 edgeDensity.put(edgeId, 0.0);
     		 continue;
     	 }
@@ -560,8 +575,11 @@ public void collectData() {
 	 if (forPdf && !anyEdgePrinted) { writer.println("No edges match the selected filters."); }
  }	 
  
- private Image buildEdgeDensityBarChart(Map<String, Double> data) throws Exception {
-	 
+ private Image buildEdgeDensityBarChart(Map<String, Double> data) {
+	 if (data == null || data.isEmpty()) {
+		 throw new AnalyticsException("No data available for edge density chart");
+	 }
+	 try {
 	 DefaultCategoryDataset dataset = new DefaultCategoryDataset();
 	 data.forEach((edgeId, avgDensity) -> dataset.addValue(avgDensity, "Edge Density", edgeId));
 	 
@@ -594,7 +612,10 @@ public void collectData() {
 	 ImageIO.write(image, "png", baos);
 	 
 	 return Image.getInstance(baos.toByteArray());
- }
+	 } catch (Exception e) {
+		 throw new AnalyticsException("Failed to build average edge density chart", e); 
+	 }
+ }	  
  	//====================
 	// CONGESTED EDGES
 	//==================== 
@@ -675,7 +696,7 @@ public void collectData() {
 		return;
 	}
 	
-	if (document == null) {throw new IllegalArgumentException("Document must not be null for PDF export");}
+	if (document == null) {throw new AnalyticsException("PDF document is required for VEHICLE_TRAVEL_TIMES export");}
 	
 	// ---------- PDF (TABLE) -----------
 	document.add(new Paragraph("Vehicle Travel Times"));
@@ -725,10 +746,10 @@ public void collectData() {
 	//=================
  
  @Override
- public void exportToCsv (String filepath, ExportFilter filter, List<ExportType> types) {
-	 
+ public void exportToCsv (String filePath, ExportFilter filter, List<ExportType> types) {
+	 LOGGER.info("Exporting statistics to CSV: " + filePath);
 	 List<ExportType> effectiveTypes = expandSummary(types);
-     try (PrintWriter writer = new PrintWriter(filepath, "UTF-8")) {
+     try (PrintWriter writer = new PrintWriter(filePath, "UTF-8")) {
     	 
     	 for (ExportType type : effectiveTypes) {
 	         
@@ -737,16 +758,25 @@ public void collectData() {
 	        	 case AVG_SPEED -> { 
 	        		 // calculate data
 	        		 Map<String, Double> data = calculateAverageSpeedPerEdge(filter);
+	        		 if (data.isEmpty()) {
+	        			    LOGGER.warning("No AVG_SPEED data available for export");
+	        			}
 	        		 exportAverageSpeedInternal(writer,data, false);
 	        	 }
 	        	 
 	        	 case AVG_TRAVEL_TIME -> {
 	        		 Map<String, Double> data = calculateAverageTravelTimePerRoute(filter);
+	        		 if (data.isEmpty()) {
+	        			    LOGGER.warning("No AVG_TRAVEL_TIME data available for export");
+	        			}
 	        		 exportAverageTravelTimeInternal(writer, data, false);
 	        	 }
 	        	 
 	        	 case EDGE_DENSITY -> {
 	        		 Map<String, Double> data = calculateAverageEdgeDensity(filter);
+	        		 if (data.isEmpty()) {
+	        			    LOGGER.warning("No EDGE_DENSITY data available for export");
+	        			}
 	        		 exportEdgeDensityInternal(writer, data, false);
 	        	 }
 	        	 
@@ -761,7 +791,8 @@ public void collectData() {
          
          
      } catch (Exception e) {
-    	 LOGGER.warning("StatsCollector: failed to export CSV: " + e.getMessage());
+    	 LOGGER.severe("CSV export failed: " + filePath + " - " + e.getMessage());
+    	 throw new AnalyticsException("CSV export failed: " + filePath, e);
 	}
  }
 
@@ -792,22 +823,21 @@ public void collectData() {
 	            return "SUMMARY export selected.\n"
 	            		+ "This report includes all available export sections (Average Speed, Average Travel Time, Edge Density, Congested Edges, Vehicle Travel Times).\n"
 	            		+ "Any filters applied are evaluated individually for each export type.";
-	            
 	        default:
 	            return "No description available for this report type.";
 	    }
 	}
  
  @Override
- public void exportToPdf (String filepath, ExportFilter filter, List<ExportType> types) {
-
+ public void exportToPdf (String filePath, ExportFilter filter, List<ExportType> types) {
+	 LOGGER.info("Exporting statistics to PDF: " + filePath);
 	 List<ExportType> effectiveTypes = expandSummary(types);
      try {
     	 
     	 // Create the PDF document
     	 Document document = new Document();
     	 // Bind the document to a file
-    	 PdfWriter.getInstance(document, new FileOutputStream(filepath));
+    	 PdfWriter.getInstance(document, new FileOutputStream(filePath));
     	 // Open the document
     	 document.open();
     	 
@@ -851,6 +881,9 @@ public void collectData() {
 	    	 	case AVG_SPEED -> {
 	    	 		// Calculate data once
 	    	 		Map<String, Double> data = calculateAverageSpeedPerEdge(filter);
+	    	 		if (data.isEmpty()) {
+        			    LOGGER.warning("No AVG_SPEED data available for export");
+        			}
 	    	 		// Export textual results to PDF 
 	    	 		exportAverageSpeedInternal(pw, data, true);
 	    	 		chartImage = buildAverageSpeedBarChart(data);
@@ -858,12 +891,18 @@ public void collectData() {
 	    	 	
 	    	 	case AVG_TRAVEL_TIME -> {
 	    	 		Map<String, Double> data = calculateAverageTravelTimePerRoute(filter);
+	    	 		if (data.isEmpty()) {
+        			    LOGGER.warning("No AVG_TRAVEL_TIME data available for export");
+        			}
 	    	 		exportAverageTravelTimeInternal(pw, data, true);
 	    	 		chartImage = buildAverageTravelTimeHorizontalBarChart(data);
 	    	 	}
 	    	 
 	    	 	case EDGE_DENSITY -> {
 	    	 		Map<String, Double> data = calculateAverageEdgeDensity(filter);
+	    	 		if (data.isEmpty()) {
+        			    LOGGER.warning("No EDGE_DENSITY data available for export");
+        			}
 	    	 		exportEdgeDensityInternal(pw, data, true);
 	    	 		chartImage = buildEdgeDensityBarChart(data);
 	    	 	}
@@ -891,7 +930,7 @@ public void collectData() {
     	 document.close();
 
      } catch (Exception e) {
-         LOGGER.warning("StatsCollector: failed to export PDF: " + e.getMessage());
+         throw new AnalyticsException("PDF export failed: " + filePath, e);
      }
  }
  

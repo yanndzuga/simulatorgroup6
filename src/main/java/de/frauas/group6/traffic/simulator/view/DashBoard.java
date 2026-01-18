@@ -7,8 +7,7 @@ import de.frauas.group6.traffic.simulator.analytics.StatsCollector;
 import de.frauas.group6.traffic.simulator.infrastructure.IEdge;
 import de.frauas.group6.traffic.simulator.infrastructure.IInfrastructureManager;
 
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.chart.*;
@@ -16,14 +15,10 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.File;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,6 +28,7 @@ import java.util.Map;
 /**
  * Real-time Dashboard view for traffic analytics.
  * Displays charts for speed, density, and congestion, and provides an interface for exporting reports.
+ * Refactored to include FileChooser for professional export handling.
  */
 public class DashBoard extends StackPane {
 
@@ -74,7 +70,7 @@ public class DashBoard extends StackPane {
 
     /**
      * Constructor initializing the Dashboard view components.
-     * * @param statsCollector Service for retrieving traffic statistics.
+     * @param statsCollector Service for retrieving traffic statistics.
      * @param infraManager   Service for accessing infrastructure data (edges, nodes).
      */
     public DashBoard(IStatsCollector statsCollector, IInfrastructureManager infraManager) {
@@ -102,10 +98,7 @@ public class DashBoard extends StackPane {
         showMainView();
     }
     
-    
-    
-    
- // ==========================================
+    // ==========================================
     // UPDATE LOOP
     // ==========================================
     public void update() {
@@ -223,10 +216,10 @@ public class DashBoard extends StackPane {
             header, 
             createCard(speedChart), 
             createCard(congestionChart), 
-            createCard(densityChart),       
+            createCard(densityChart),        
             createCard(travelTimeChart),    
             new Separator(),                
-            btnGoToExport                   
+            btnGoToExport                    
         );
     }
 
@@ -284,8 +277,7 @@ public class DashBoard extends StackPane {
         
         // -- Route ID Filter (Dynamic XML Loading) --
         cbRouteIdFilter = new ComboBox<>();
-        // Professional Approach: Load dynamically from XML instead of hardcoding
-        List<String> routes = infraManager.loadRouteIds("minimal.rou.xml");
+        List<String> routes = infraManager != null ? infraManager.loadRouteIds("minimal.rou.xml") : new ArrayList<>();
         cbRouteIdFilter.getItems().add("All Routes");
         cbRouteIdFilter.getItems().addAll(routes);
         cbRouteIdFilter.getSelectionModel().selectFirst();
@@ -356,16 +348,16 @@ public class DashBoard extends StackPane {
         
         formatBox.getChildren().addAll(rbCsv, rbPdf);
 
-        // --- SECTION 4: FILENAME ---
-        Label l4 = new Label("4. File Details");
+        // --- SECTION 4: FILE DETAILS (Optional Default Name) ---
+        Label l4 = new Label("4. Default Filename (Optional)");
         l4.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
         l4.setStyle("-fx-text-fill: #34495e;");
         
         VBox fileBox = new VBox(5);
         txtFileName = new TextField("traffic_report");
-        txtFileName.setPromptText("Enter filename...");
+        txtFileName.setPromptText("Enter default filename...");
         txtFileName.setStyle("-fx-font-size: 12px;");
-        fileBox.getChildren().addAll(new Label("Filename"), txtFileName);
+        fileBox.getChildren().addAll(new Label("Filename Suggestion"), txtFileName);
 
         // --- BUTTONS ---
         HBox actions = new HBox(15);
@@ -377,7 +369,7 @@ public class DashBoard extends StackPane {
         btnCancel.setStyle("-fx-font-size: 12px;");
         btnCancel.setOnAction(e -> showMainView());
 
-        Button btnConfirm = new Button("Export");
+        Button btnConfirm = new Button("Export...");
         btnConfirm.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-font-size: 12px;");
         btnConfirm.setPrefWidth(120);
         btnConfirm.setOnAction(e -> handleExport());
@@ -397,18 +389,15 @@ public class DashBoard extends StackPane {
     
     /**
      * Helper to create a vertical filter row with a label above the control.
-     * This layout ensures the parameter name is visible before interaction.
      */
     private VBox createFilterRow(String labelText, Control control) {
-        VBox row = new VBox(3); // Small gap between label and input
+        VBox row = new VBox(3); 
         Label label = new Label(labelText);
         label.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #7f8c8d; -fx-text-transform: uppercase;");
         row.getChildren().addAll(label, control);
         return row;
     }
 
-   
-   
     // ==========================================
     // NAVIGATION
     // ==========================================
@@ -423,7 +412,7 @@ public class DashBoard extends StackPane {
     }
 
     // ==========================================
-    // EXPORT LOGIC
+    // EXPORT LOGIC WITH FILE CHOOSER
     // ==========================================
     private void handleExport() {
         if (statsCollector == null) return;
@@ -480,34 +469,49 @@ public class DashBoard extends StackPane {
         // Congested Only
         filter.setOnlyCongestedEdges(cbOnlyCongested.isSelected());
 
-        // 4. EXECUTE EXPORT
-        try {
-            String fName = txtFileName.getText().trim().isEmpty() ? "traffic_report" : txtFileName.getText().trim();
-            // Sanitize filename
-            fName = fName.replaceAll("[^a-zA-Z0-9._-]", "_");
-            
-            if (selectedTypes.size() == 1) {
-                fName += "_" + selectedTypes.get(0).name().toLowerCase(); 
-            } else {
-                fName += "_full_report";
+        // 4. CHOOSE EXPORT LOCATION (FileChooser)
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle("Save Export File");
+        
+        // Construct a default filename suggestion
+        String defaultName = txtFileName.getText().trim().isEmpty() ? "traffic_report" : txtFileName.getText().trim();
+        defaultName = defaultName.replaceAll("[^a-zA-Z0-9._-]", "_");
+        
+        if (selectedTypes.size() == 1) {
+            defaultName += "_" + selectedTypes.get(0).name().toLowerCase(); 
+        } else {
+            defaultName += "_full_report";
+        }
+        
+        // Set extension filters and initial name
+        if (isCsv) {
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files (*.csv)", "*.csv"));
+            fileChooser.setInitialFileName(defaultName + ".csv");
+        } else {
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("PDF Files (*.pdf)", "*.pdf"));
+            fileChooser.setInitialFileName(defaultName + ".pdf");
+        }
+        
+        // Get the current stage window to show the dialog
+        Stage stage = (Stage) this.getScene().getWindow();
+        File file = fileChooser.showSaveDialog(stage);
+
+        if (file != null) {
+            try {
+                String path = file.getAbsolutePath();
+                
+                if (isCsv) statsCollector.exportToCsv(path, filter, selectedTypes);
+                else statsCollector.exportToPdf(path, filter, selectedTypes);
+                
+                showAlert("Success", "Report exported successfully to:\n" + path);
+                showMainView();
+                
+            } catch (Exception ex) {
+                showAlert("Error", "Export failed: " + ex.getMessage());
+                ex.printStackTrace();
             }
-            
-            String ext = isCsv ? ".csv" : ".pdf";
-            String path = System.getProperty("/D") + File.separator + fName + ext;
-            
-            if (isCsv) statsCollector.exportToCsv(path, filter, selectedTypes);
-            else statsCollector.exportToPdf(path, filter, selectedTypes);
-            
-            showAlert("Success", "Report exported successfully to:\n" + path);
-            showMainView();
-            
-        } catch (Exception ex) {
-            showAlert("Error", "Export failed: " + ex.getMessage());
-            ex.printStackTrace();
         }
     }
-
-    
 
     // --- Helpers ---
     private VBox createCard(Chart chart) {
@@ -521,7 +525,6 @@ public class DashBoard extends StackPane {
         if (chart.lookup(".chart-plot-background") != null) {
             chart.lookup(".chart-plot-background").setStyle("-fx-background-color: transparent;");
         }
-        // Improve label font size
         chart.getXAxis().setTickLabelFont(Font.font("Arial", 10));
         chart.getYAxis().setTickLabelFont(Font.font("Arial", 10));
     }

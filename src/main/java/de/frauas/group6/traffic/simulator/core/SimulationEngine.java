@@ -384,7 +384,6 @@ public class SimulationEngine implements ISimulationEngine {
         );
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public List<String> getControlledLanes(String tlId) {
         return executeTraas(
